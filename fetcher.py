@@ -6,7 +6,7 @@ from user import User
 class Fetcher():
     def __init__(self, username):
         self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
-        self.master = User()
+        self.master = User(username)
 
     def fetchManga(self, title=""):
         title.replace(" ", "+")
