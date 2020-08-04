@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 TOKEN = '1390945914:AAFlBPy0JbmtRzXg7ob2T3TRKoDaiVgpwpI'
 
 TITLES, FETCH = range(2)
+SELECT, LATEST, REMOVE = range(3)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
