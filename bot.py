@@ -52,10 +52,10 @@ def start(update, context):
 def help(update, context):
     """Send a message when the command /help is issued."""
     update.message.reply_text(  'Comandi:\n'
-                                '/start  -- guided procedure\n
+                                '/start  -- guided procedure\n'
                                 '/add    -- to add manga\n'
                                 '/check  -- check for updates of all manga\n'
-                                '/list   --> list mangas --> /remove
+                                '/list   --> list mangas --> /remove'
                                 '\t\t\t\t/latest')
 
 def add(update, context):
