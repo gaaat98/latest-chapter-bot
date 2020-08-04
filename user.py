@@ -4,9 +4,12 @@ import json
 
 class User():
     def __init__(self, username="test"):
-        redis_url = "redis://redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com:13589"
+        redis_pw = "g3xk3MDUHkmNMqan7O9wG5b2WfRZX2AI"
+        redis_host = "redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com"
+        redis_port = 13589
         #redis_url = "redis://localhost:6379"
-        self.redis = redis.from_url(redis_url)
+        #self.redis = redis.from_url(redis_url)
+        self.redis = redis.Redis(host=redis_host, port=redis_port, password=redis_pw)
         self.username = username
         self.redisGetStatus()
     

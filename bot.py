@@ -42,6 +42,7 @@ def sendTitleMessage(update, context, title, lastn, lasturl):
 
 def start(update, context):
     """Send a message when the command /start is issued."""
+    print("Ricevuto comando start")
     user = update.message.from_user
     instantiateFetcher(update, context)
     reply_keyboard = [['/add manga'], ['/check for updates']]
