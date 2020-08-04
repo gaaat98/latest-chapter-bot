@@ -1,28 +1,37 @@
 import os
-import redis
+import pymongo
 import json
 
 class User():
-    def __init__(self, username="test"):
+    def __init__(self, userID="test"):
+        """
         redis_pw = "g3xk3MDUHkmNMqan7O9wG5b2WfRZX2AI"
         redis_host = "redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com"
         redis_port = 13589
         #redis_url = "redis://localhost:6379"
         #self.redis = redis.from_url(redis_url)
         self.redis = redis.Redis(host=redis_host, port=redis_port, password=redis_pw)
-        self.username = username
-        self.redisGetStatus()
+        """
+        self.connectToDb()
+        self.userID = userID
+        self.getStatusFromDb()
     
-    def redisGetStatus(self):
-        data = self.redis.get(self.username)
+    def connectToDb(self):
+        mongo_url = os.getenv('MONGODB_URI')
+        self.db = pymongo.MongoClient(mongo_url, retryWrites=False)['***REMOVED***'].statuses
+
+    def getStatusFromDb(self):
+        data = self.db.find_one({"_id":self.userID})
         if data == None:
             self.status = {}
         else:
-            self.status = json.loads(data)
+            self.status = data
     
-    def redisSetStatus(self):
-        data = json.dumps(self.status)
-        self.redis.set(self.username, data)
+    def setStatusToDb(self):
+        data = {}
+        data["_id"] = self.userID
+        data["status"] = self.status
+        self.db.insert_one(data)
     
     # todo improve data structures ---> maybe add "manga" class
     def addManga(self, title, url, latest_chapter, latest_url):
@@ -31,7 +40,7 @@ class User():
             self.status[title]["url"] = url
             self.status[title]["latestn"] = latest_chapter
             self.status[title]["latesturl"] = latest_url
-            self.redisSetStatus()
+            self.setStatusToDb()
         
 
     def getLatest(self, title):
@@ -40,7 +49,8 @@ class User():
     def updateLatest(self, title, n, url):
         self.status[title]["latestn"] = n
         self.status[title]["latesturl"] = url
-        self.redisSetStatus()
+        self.setStatusToDb()
+
     
     def getTitlesAndUrls(self):
         ret = {}
