@@ -99,7 +99,7 @@ def getTitles(update, context):
     else:
         context.user_data["title_list"] = options
         keyboard = [[InlineKeyboardButton(k, callback_data=k)] for k in options.keys()]
-        reply_keyboard.append([InlineKeyboardButton("Annulla", callback_data="7cancel")])
+        keyboard.append([InlineKeyboardButton("Annulla", callback_data="/cancel")])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         update.message.reply_text(f'Ho trovato i seguenti manga:\n',
