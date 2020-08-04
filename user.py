@@ -31,6 +31,7 @@ class User():
         data = {}
         data["_id"] = self.userID
         data["status"] = self.status
+        self.db.delete_one({"_id":self.userID})
         self.db.insert_one(data)
     
     # todo improve data structures ---> maybe add "manga" class
