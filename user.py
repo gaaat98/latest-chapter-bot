@@ -42,7 +42,10 @@ class User():
             self.status[title]["latestn"] = latest_chapter
             self.status[title]["latesturl"] = latest_url
             self.setStatusToDb()
-        
+
+    def removeManga(self, title):
+        del self.status[title]
+        self.setStatusToDb() 
 
     def getLatest(self, title):
         return self.status[title]["latestn"]

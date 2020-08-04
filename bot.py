@@ -6,8 +6,8 @@ Author: liuhh02 https://medium.com/@liuhh02
 
 import logging
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
-                          ConversationHandler)
-from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
+                          ConversationHandler, CallbackQueryHandler)
+from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
 import os
 
 from fetcher import Fetcher
@@ -51,7 +51,12 @@ def start(update, context):
 
 def help(update, context):
     """Send a message when the command /help is issued."""
-    update.message.reply_text('Prima cosa modificata fra')
+    update.message.reply_text(  'Comandi:\n'
+                                '/start  -- guided procedure\n
+                                '/add    -- to add manga\n'
+                                '/check  -- check for updates of all manga\n'
+                                '/list   --> list mangas --> /remove
+                                '\t\t\t\t/latest')
 
 def add(update, context):
     instantiateFetcher(update, context)
@@ -63,6 +68,7 @@ def checkAll(update, context):
     res = context.user_data["fetcher"].checkRelease()
     if res == []:
         emptyListMessage(update, context)
+
     else:
         for t in res:
             sendTitleMessage(update, context, *t)
@@ -72,11 +78,14 @@ def listAll(update, context):
     titles = context.user_data["fetcher"].listMangaTitles()
     if titles == []:
         emptyListMessage(update, context)
+        return ConversationHandler.END
     else:
         message = ""
-        for t in titles:
-            message += f"+ *{t}*\n"
-        update.message.reply_markdown(message)
+        reply_keyboard = [[f"*{t}*"] for t in titles]
+
+        update.message.reply_text(  f'Seleziona un manga dalla lista:\n',
+                                    reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+
 def emptyListMessage(update, context):
     message = "No titles found in your list!\nStart adding with /add"
     update.message.reply_markdown(message)
@@ -89,14 +98,25 @@ def getTitles(update, context):
         return ConversationHandler.END
     else:
         context.user_data["title_list"] = options
-        reply_keyboard = [[k] for k in options.keys()]
-        reply_keyboard.append(["/cancel"])
-        update.message.reply_text(f'Seleziona il titolo dalla lista\n',
-                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+        keyboard = [[InlineKeyboardButton(k, callback_data=k)] for k in options.keys()]
+        reply_keyboard.append([InlineKeyboardButton("Annulla", callback_data="7cancel")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        update.message.reply_text(f'Ho trovato i seguenti manga:\n',
+                               reply_markup=reply_markup)
         return FETCH
 
+def button(update, context):
+    query = update.callback_query
+    context.user_data["title"] = query.data
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query.answer()
+    if query.data == "/cancel":
+        cancel(update, context)
+
 def fetchLatest(update, context):
-    title = update.message.text
+    title = context.user_data["title"]
     lastn, lasturl = context.user_data["fetcher"].selectMangaAddAndFetch(context.user_data["title_list"], title)
     del context.user_data["title_list"]
     sendTitleMessage(update, context, title, lastn, lasturl)
@@ -124,7 +144,7 @@ def main():
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
-    conv_handler = ConversationHandler(
+    add_handler = ConversationHandler(
         entry_points=[CommandHandler('add', add)],
 
         states={
@@ -134,10 +154,24 @@ def main():
 
         fallbacks=[CommandHandler("cancel", cancel)]
     )
+
+    list_handler = ConversationHandler(
+        entry_points=[CommandHandler('list', listAll)],
+
+        states={
+            SELECT: [MessageHandler(Filters.text & ~Filters.command, getTitles)],
+            LATEST: [MessageHandler(Filters.text & ~Filters.command, fetchLatest)],
+            REMOVE: [MessageHandler(Filters.text & ~Filters.command, fetchLatest)],
+        },
+
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("check", checkAll))
-    dp.add_handler(CommandHandler("list", listAll))
-    dp.add_handler(conv_handler)
+    dp.add_handler(CommandHandler("help", help))
+    
+    dp.add_handler(add_handler)
+    dp.add_handler(list_handler)
 
     # log all errors
     dp.add_error_handler(error)
