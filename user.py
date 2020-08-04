@@ -4,8 +4,8 @@ import json
 
 class User():
     def __init__(self, username="test"):
-        #redis_url = "redis://redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com:13589"
-        redis_url = "redis://localhost:6379"
+        redis_url = "redis://redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com:13589"
+        #redis_url = "redis://localhost:6379"
         self.redis = redis.from_url(redis_url)
         self.username = username
         self.redisGetStatus()
