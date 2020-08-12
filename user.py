@@ -17,12 +17,15 @@ class User():
         data = self.db.find_one({"_id":self.userID})
         if data == None:
             self.status = {}
+            self.notifications = False
         else:
             self.status = data["status"]
+            self.notifications = data["notifications"]
     
     def setStatusToDb(self):
         data = {}
         data["_id"] = self.userID
+        data["notifications"] = self.notifications
         data["status"] = self.status
         self.db.delete_one({"_id":self.userID})
         self.db.insert_one(data)
@@ -61,3 +64,14 @@ class User():
     
     def isPresent(self, title):
         return title in self.status.keys()
+    
+    def notificationStatus(self):
+        return self.notifications
+    
+    def enableNotifications(self):
+        self.notifications = True
+        self.setStatusToDb()
+    
+    def disableNotifications(self):
+        self.notifications = False
+        self.setStatusToDb()

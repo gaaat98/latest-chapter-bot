@@ -7,7 +7,7 @@ Author: liuhh02 https://medium.com/@liuhh02
 import logging
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
                           ConversationHandler, CallbackQueryHandler)
-from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
+from telegram import (Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
 import os
 
 from fetcher import Fetcher
@@ -91,8 +91,8 @@ def listTitleOptions(update, context):
             context.user_data["title"] = query.data
         keyboard = [[InlineKeyboardButton("Rimuovi", callback_data="remove")], [InlineKeyboardButton("Ultimo capitolo", callback_data="latest")]]
         keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
-        query.edit_message_text(text="Seleziona un'opzione:\n",
-                                reply_markup=InlineKeyboardMarkup(keyboard))
+        query.edit_message_text(text="*Seleziona un'opzione:*\n",
+                                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="MARKDOWN")
         return EXECUTEOPTION
 
 def executeOption(update, context):
@@ -105,9 +105,13 @@ def executeOption(update, context):
         context.user_data["fetcher"].removeFromList(context.user_data["title"])
     elif query.data == "latest":
         fetchLatest(query, context)
-
-    del context.user_data["title"]
     query.edit_message_text(text="Operazione completata!")
+    try:
+        del context.user_data["title"]
+        del context.user_data["title_list"]
+    except:
+        pass
+    
     return ConversationHandler.END
 
 def emptyListMessage(update, context):
@@ -154,8 +158,6 @@ def generateTitleKeyboard(context, options):
 
 def selectSearchResult(update, context):
     query = update.callback_query
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
     if query.data == "cancel_operation":
         query.edit_message_text(text="Operazione annullata.")
@@ -166,10 +168,14 @@ def selectSearchResult(update, context):
         query.edit_message_text(text="Searching...")
         fetchLatest(query, context)
         query.edit_message_text(text="Trovato!")
+    
+    try:
         del context.user_data["title"]
         del context.user_data["url"]
-    
-    del context.user_data["title_list"]
+        del context.user_data["title_list"]
+    except:
+        pass
+
     return ConversationHandler.END
 
 def fetchLatest(update, context):
@@ -189,6 +195,23 @@ def error(update, context):
 def fallback(update, context):
     print("Filtrato comando")
     return
+
+def notify(update, context):
+    instantiateFetcher(update, context)
+    if "chat_id" not in context.user_data.keys():
+        context.user_data["chat_id"] = update.message.chat.id
+
+    if context.user_data["fetcher"].notificationStatus():
+        context.user_data["fetcher"].setNotificationStatus(False)
+        context.bot.sendMessage(chat_id=context.user_data["chat_id"], text="Notifiche disabilitate!")
+        del context.user_data["chat_id"]
+    else:
+        context.user_data["fetcher"].setNotificationStatus(True)
+        context.bot.sendMessage(chat_id=context.user_data["chat_id"], text="Notifiche abilitate!")
+    
+    print(context.user_data)
+
+
 
 def main():
     """Start the bot."""
@@ -225,6 +248,7 @@ def main():
 
     dp.add_handler(CommandHandler("start", start), 0)
     dp.add_handler(CommandHandler("check", checkAll), 0)
+    dp.add_handler(CommandHandler("notify", notify), 0)
     dp.add_handler(CommandHandler("help", help), 0)
     
 
@@ -235,7 +259,7 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://dfe8a05862fb.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('https://02034edd4179.ngrok.io/' + TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since

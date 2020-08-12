@@ -70,4 +70,13 @@ class Fetcher():
     
     def removeFromList(self, title):
         self.master.removeManga(title)
+    
+    def notificationStatus(self):
+        return self.master.notificationStatus()
+    
+    def setNotificationStatus(self, notifications):
+        if notifications:
+            self.master.enableNotifications()
+        else:
+            self.master.disableNotifications()
 
