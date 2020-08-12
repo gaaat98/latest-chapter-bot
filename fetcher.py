@@ -38,6 +38,7 @@ class Fetcher():
         resp = requests.get(url)
         temp = resp.content.decode()
         temp = temp.replace("\n", "\r")
+        temp = temp.replace("   ", " ")
         temp = re.findall(r'<li class="wp-manga-chapter\s?">.{0,310}</a>', temp)
         temp = [' '.join(t.split()) for t in temp]
 

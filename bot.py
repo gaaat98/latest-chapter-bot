@@ -75,8 +75,7 @@ def listAllTitles(update, context):
         emptyListMessage(update, context)
         return ConversationHandler.END
     else:
-        keyboard = [[InlineKeyboardButton(t if len(t)<=30 else t[0:30]+"...", callback_data=(t if len(t)<=30 else t[0:30]+"..."))] for t in titles]
-        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
+        keyboard = generateTitleKeyboard(context, titles)
         update.message.reply_markdown(  '*Seleziona un manga dalla lista:*\n',
                                     reply_markup=InlineKeyboardMarkup(keyboard))
     return LISTOPTIONS
@@ -88,7 +87,8 @@ def listTitleOptions(update, context):
         query.edit_message_text(text="Operazione annullata")
         return ConversationHandler.END
     else:
-        context.user_data["title"] = query.data
+        if query.data != "$$check_user_data$$":
+            context.user_data["title"] = query.data
         keyboard = [[InlineKeyboardButton("Rimuovi", callback_data="remove")], [InlineKeyboardButton("Ultimo capitolo", callback_data="latest")]]
         keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
         query.edit_message_text(text="Seleziona un'opzione:\n",
@@ -102,10 +102,8 @@ def executeOption(update, context):
         query.edit_message_text(text="Operazione annullata.")
         return ConversationHandler.END
     elif query.data == "remove":
-        print(f'rimozione di {context.user_data["title"]}')
         context.user_data["fetcher"].removeFromList(context.user_data["title"])
     elif query.data == "latest":
-        print(f'latest update {context.user_data["title"]}')
         fetchLatest(query, context)
 
     del context.user_data["title"]
@@ -128,14 +126,31 @@ def getTitles(update, context):
         update.message.reply_text("Not found :(")
         return ConversationHandler.END
     else:
-        context.user_data["title_list"] = options
-        keyboard = [[InlineKeyboardButton(t if len(t)<=30 else t[0:30]+"...", callback_data=(t if len(t)<=30 else t[0:30]+"..."))] for t in options.keys()]
-        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
+        keyboard = generateTitleKeyboard(context, options)
         reply_markup = InlineKeyboardMarkup(keyboard)
-
-        update.message.reply_text(f'Ho trovato i seguenti manga:\n',
+        update.message.reply_markdown('*Ho trovato i seguenti manga:*\n',
                                reply_markup=reply_markup)
         return SELECTANDFETCH
+
+def generateTitleKeyboard(context, options):
+    context.user_data["title_list"] = options
+    keyboard = []
+    if isinstance(options, list):
+        elements = options
+    else:
+        elements = options.keys()
+
+    for t in elements:
+        if len(t) > 64:
+            data = "$$check_user_data$$"
+            text = t[0:32]+"..."
+            context.user_data["title"] = t
+        else:
+            text = t
+            data = t
+        keyboard.append( [InlineKeyboardButton(text, callback_data=data)] )
+    keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
+    return keyboard
 
 def selectSearchResult(update, context):
     query = update.callback_query
@@ -143,10 +158,11 @@ def selectSearchResult(update, context):
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
     if query.data == "cancel_operation":
-        query.edit_message_text(text="Operazione annullata")
+        query.edit_message_text(text="Operazione annullata.")
     else:
-        context.user_data["title"] = query.data
-        context.user_data["url"] = context.user_data["title_list"][query.data]
+        if query.data != "$$check_user_data$$":
+            context.user_data["title"] = query.data
+        context.user_data["url"] = context.user_data["title_list"][context.user_data["title"]]
         query.edit_message_text(text="Searching...")
         fetchLatest(query, context)
         query.edit_message_text(text="Trovato!")
@@ -219,7 +235,7 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://59892829704a.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('https://dfe8a05862fb.ngrok.io/' + TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
