@@ -27,13 +27,14 @@ class Fetcher():
 
         return results
 
-    def selectMangaAddAndFetch(self, l, chosenTitle):
-        target = l[chosenTitle]
-        latest_chapter, latest_url = self.fetchLatestChapter(target)
-        self.master.addManga(chosenTitle, target, latest_chapter, latest_url)
-        return latest_chapter, latest_url
+    def selectMangaAddAndFetch(self, title, url):
+        self.master.presentManga(title, url)
+        data = self.fetchLatestChapter(title)
+        self.master.updateLatest(*data[0])
+        return data
 
-    def fetchLatestChapter(self, url):
+    def fetchLatestChapter(self, title):
+        url = self.master.getUrlFromName(title)
         resp = requests.get(url)
         temp = resp.content.decode()
         temp = temp.replace("\n", "\r")
@@ -46,13 +47,13 @@ class Fetcher():
             lastn = 0
         lasturl = re.findall(r'https://.*"', temp[0])[0][0:-1]
 
-        return lastn, lasturl
+        return [[title, lastn, lasturl]]
 
     def checkRelease(self):
         mangas = self.master.getTitlesAndUrls()
         res = []
-        for title, url in mangas.items():
-            latestn, latesturl = self.fetchLatestChapter(url)
+        for title in mangas.keys():
+            _, latestn, latesturl = self.fetchLatestChapter(title)[0]
             if self.master.getLatest(title) < latestn:
                 self.master.updateLatest(title, latestn, latesturl)
             
@@ -62,4 +63,10 @@ class Fetcher():
 
     def listMangaTitles(self):
         return self.master.getTitles()
+
+    def isPresent(self, title):
+        return self.master.isPresent(title)
+    
+    def removeFromList(self, title):
+        self.master.removeManga(title)
 

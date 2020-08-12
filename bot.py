@@ -21,8 +21,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 TOKEN = '1390945914:AAFlBPy0JbmtRzXg7ob2T3TRKoDaiVgpwpI'
 
-TITLES, FETCH = range(2)
-SELECT, LATEST, REMOVE = range(3)
+TITLES, SELECTANDFETCH = range(2)
+LISTOPTIONS, EXECUTEOPTION = range(2)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
@@ -31,65 +31,95 @@ def instantiateFetcher(update, context):
         user = update.message.from_user
         context.user_data["fetcher"] = Fetcher(user.id)
 
-def sendTitleMessage(update, context, title, lastn, lasturl):
-    try:
-        update.message.reply_markdown(f'*=== {title} ===*\n'
-                                      f'Ultimo capitolo: *{lastn}*\n'
-                                      f'*LINK:* {lasturl}')
-    except:
-        update.message.reply_html(f'<b>=== {title} ===</b>\n'
-                                  f'Ultimo capitolo: <b>{lastn}</b>\n'
-                                  f'<b>LINK:</b> {lasturl}')
+def sendTitleMessage(update, context, data):
+    for m in data:
+        try:
+            update.message.reply_markdown(f'*=== {m[0]} ===*\n'
+                                        f'Ultimo capitolo: *{m[1]}*\n'
+                                        f'*LINK:* {m[2]}')
+        except:
+            update.message.reply_html(f'<b>=== {m[0]} ===</b>\n'
+                                    f'Ultimo capitolo: <b>{m[1]}</b>\n'
+                                    f'<b>LINK:</b> {m[2]}')
 
 def start(update, context):
     """Send a message when the command /start is issued."""
     user = update.message.from_user
     instantiateFetcher(update, context)
-    reply_keyboard = [['/add manga'], ['/check for updates']]
+    reply_keyboard = [['/add manga'], ['/check for updates'], ['/list and manage manga']]
+    keyboard = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     update.message.reply_text(f'Benvenuto {user.first_name}!\n'
                                'Cosa vuoi fare?',
-                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+                               reply_markup=keyboard)
 
 def help(update, context):
     """Send a message when the command /help is issued."""
-    update.message.reply_text(  'Comandi:\n'
-                                '/start  -- guided procedure\n'
-                                '/add    -- to add manga\n'
-                                '/check  -- check for updates of all manga\n'
-                                '/list   --> list mangas --> /remove'
-                                '\t\t\t\t/latest')
-
-def add(update, context):
-    instantiateFetcher(update, context)
-    update.message.reply_text(f'Inserisci il titolo da ricercare')
-    return TITLES
+    update.message.reply_markdown(  'Comandi:\n'
+                                '/start    --- guided procedure\n'
+                                '/add      --- to add manga\n'
+                                '/check  --- check for updates of all manga\n'
+                                '/list        --- list mangas --> /remove  /latest chapter')
 
 def checkAll(update, context):
     instantiateFetcher(update, context)
     res = context.user_data["fetcher"].checkRelease()
     if res == []:
         emptyListMessage(update, context)
-
     else:
-        for t in res:
-            sendTitleMessage(update, context, *t)
+        sendTitleMessage(update, context, res)
 
-def listAll(update, context):
+def listAllTitles(update, context):
     instantiateFetcher(update, context)
     titles = context.user_data["fetcher"].listMangaTitles()
     if titles == []:
         emptyListMessage(update, context)
         return ConversationHandler.END
     else:
-        message = ""
-        reply_keyboard = [[f"*{t}*"] for t in titles]
+        keyboard = [[InlineKeyboardButton(t if len(t)<=30 else t[0:30]+"...", callback_data=(t if len(t)<=30 else t[0:30]+"..."))] for t in titles]
+        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
+        update.message.reply_markup(  '*Seleziona un manga dalla lista:*\n',
+                                    reply_markup=InlineKeyboardMarkup(keyboard))
+    return LISTOPTIONS
 
-        update.message.reply_text(  f'Seleziona un manga dalla lista:\n',
-                                    reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+def listTitleOptions(update, context):
+    query = update.callback_query
+    query.answer()
+    if query.data == "cancel_operation":
+        query.edit_message_text(text="Operazione annullata")
+        return ConversationHandler.END
+    else:
+        context.user_data["title"] = query.data
+        keyboard = [[InlineKeyboardButton("Rimuovi", callback_data="remove")], [InlineKeyboardButton("Ultimo capitolo", callback_data="latest")]]
+        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
+        query.edit_message_text(text="Seleziona un'opzione:\n",
+                                reply_markup=InlineKeyboardMarkup(keyboard))
+        return EXECUTEOPTION
+
+def executeOption(update, context):
+    query = update.callback_query
+    query.answer()
+    if query.data == "cancel_operation":
+        query.edit_message_text(text="Operazione annullata.")
+        return ConversationHandler.END
+    elif query.data == "remove":
+        print(f'rimozione di {context.user_data["title"]}')
+        context.user_data["fetcher"].removeFromList(context.user_data["title"])
+    elif query.data == "latest":
+        print(f'latest update {context.user_data["title"]}')
+        fetchLatest(query, context)
+
+    del context.user_data["title"]
+    query.edit_message_text(text="Operazione completata!")
+    return ConversationHandler.END
 
 def emptyListMessage(update, context):
     message = "No titles found in your list!\nStart adding with /add"
     update.message.reply_markdown(message)
+
+def add(update, context):
+    instantiateFetcher(update, context)
+    update.message.reply_text(f'Inserisci il titolo da ricercare')
+    return TITLES
 
 def getTitles(update, context):
     title = update.message.text
@@ -99,40 +129,50 @@ def getTitles(update, context):
         return ConversationHandler.END
     else:
         context.user_data["title_list"] = options
-        keyboard = [[InlineKeyboardButton(k, callback_data=k)] for k in options.keys()]
-        keyboard.append([InlineKeyboardButton("Annulla", callback_data="/cancel")])
+        keyboard = [[InlineKeyboardButton(t if len(t)<=30 else t[0:30]+"...", callback_data=(t if len(t)<=30 else t[0:30]+"..."))] for t in options.keys()]
+        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         update.message.reply_text(f'Ho trovato i seguenti manga:\n',
                                reply_markup=reply_markup)
-        return FETCH
+        return SELECTANDFETCH
 
-def button(update, context):
+def selectSearchResult(update, context):
     query = update.callback_query
-    context.user_data["title"] = query.data
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
-    if query.data == "/cancel":
-        cancel(update, context)
+    if query.data == "cancel_operation":
+        query.edit_message_text(text="Operazione annullata")
+    else:
+        context.user_data["title"] = query.data
+        context.user_data["url"] = context.user_data["title_list"][query.data]
+        query.edit_message_text(text="Searching...")
+        fetchLatest(query, context)
+        query.edit_message_text(text="Trovato!")
+        del context.user_data["title"]
+        del context.user_data["url"]
+    
+    del context.user_data["title_list"]
+    return ConversationHandler.END
 
 def fetchLatest(update, context):
     title = context.user_data["title"]
-    lastn, lasturl = context.user_data["fetcher"].selectMangaAddAndFetch(context.user_data["title_list"], title)
-    del context.user_data["title_list"]
-    sendTitleMessage(update, context, title, lastn, lasturl)
-    return ConversationHandler.END
+    try:
+        url = context.user_data["url"]
+        data = context.user_data["fetcher"].selectMangaAddAndFetch(title, url)
+    except:
+        data = context.user_data["fetcher"].fetchLatestChapter(title)
+    
+    sendTitleMessage(update, context, data)
 
 def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
-def cancel(update, context):
-    user = update.message.from_user
-    logger.info("User %s canceled the action.", user.first_name)
-    update.message.reply_text('Operazione annullata')
-
-    return ConversationHandler.END
+def fallback(update, context):
+    print("Filtrato comando")
+    return
 
 def main():
     """Start the bot."""
@@ -144,35 +184,33 @@ def main():
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
-    # on different commands - answer in Telegram
-    add_handler = ConversationHandler(
+    # ConversationHandler per la ricerca e aggiunta del mango
+    addManga_handler = ConversationHandler(
         entry_points=[CommandHandler('add', add)],
-
         states={
             TITLES: [MessageHandler(Filters.text & ~Filters.command, getTitles)],
-            FETCH: [MessageHandler(Filters.text & ~Filters.command, fetchLatest)],
+            SELECTANDFETCH:  [CallbackQueryHandler(selectSearchResult)]
         },
-
-        fallbacks=[CommandHandler("cancel", cancel)]
+        fallbacks=[MessageHandler(Filters.command, fallback)],
     )
 
     list_handler = ConversationHandler(
-        entry_points=[CommandHandler('list', listAll)],
-
+        entry_points=[CommandHandler('list', listAllTitles)],
         states={
-            SELECT: [MessageHandler(Filters.text & ~Filters.command, getTitles)],
-            LATEST: [MessageHandler(Filters.text & ~Filters.command, fetchLatest)],
-            REMOVE: [MessageHandler(Filters.text & ~Filters.command, fetchLatest)],
+            LISTOPTIONS:   [CallbackQueryHandler(listTitleOptions)],
+            EXECUTEOPTION:  [CallbackQueryHandler(executeOption)],
         },
-
-        fallbacks=[CommandHandler("cancel", cancel)]
+        fallbacks=[MessageHandler(Filters.command, fallback)],
     )
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("check", checkAll))
-    dp.add_handler(CommandHandler("help", help))
+
+    dp.add_handler(addManga_handler, 0)
+    dp.add_handler(list_handler, 0)
     
-    dp.add_handler(add_handler)
-    dp.add_handler(list_handler)
+
+    dp.add_handler(CommandHandler("start", start), 0)
+    dp.add_handler(CommandHandler("check", checkAll), 0)
+    dp.add_handler(CommandHandler("help", help), 0)
+    
 
     # log all errors
     dp.add_error_handler(error)
@@ -181,7 +219,7 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://7190e44115ad.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('https://03800a875d17.ngrok.io/' + TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since

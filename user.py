@@ -4,20 +4,13 @@ import json
 
 class User():
     def __init__(self, userID="test"):
-        """
-        redis_pw = "g3xk3MDUHkmNMqan7O9wG5b2WfRZX2AI"
-        redis_host = "redis-13589.c78.eu-west-1-2.ec2.cloud.redislabs.com"
-        redis_port = 13589
-        #redis_url = "redis://localhost:6379"
-        #self.redis = redis.from_url(redis_url)
-        self.redis = redis.Redis(host=redis_host, port=redis_port, password=redis_pw)
-        """
         self.connectToDb()
         self.userID = userID
         self.getStatusFromDb()
     
     def connectToDb(self):
         mongo_url = os.getenv('MONGODB_URI')
+        #mongo_url = "***REMOVED***"
         self.db = pymongo.MongoClient(mongo_url, retryWrites=False)['***REMOVED***'].statuses
 
     def getStatusFromDb(self):
@@ -25,7 +18,7 @@ class User():
         if data == None:
             self.status = {}
         else:
-            self.status = data
+            self.status = data["status"]
     
     def setStatusToDb(self):
         data = {}
@@ -34,28 +27,26 @@ class User():
         self.db.delete_one({"_id":self.userID})
         self.db.insert_one(data)
     
-    # todo improve data structures ---> maybe add "manga" class
-    def addManga(self, title, url, latest_chapter, latest_url):
-        if title not in self.status.keys():
+    def presentManga(self, title, url):
+        if not self.isPresent(title):
             self.status[title] = {}
             self.status[title]["url"] = url
-            self.status[title]["latestn"] = latest_chapter
-            self.status[title]["latesturl"] = latest_url
             self.setStatusToDb()
 
     def removeManga(self, title):
-        del self.status[title]
-        self.setStatusToDb() 
+        if self.isPresent(title):
+            del self.status[title]
+            self.setStatusToDb() 
 
     def getLatest(self, title):
         return self.status[title]["latestn"]
     
     def updateLatest(self, title, n, url):
-        self.status[title]["latestn"] = n
-        self.status[title]["latesturl"] = url
-        self.setStatusToDb()
+        if self.isPresent(title):
+            self.status[title]["latestn"] = n
+            self.status[title]["latesturl"] = url
+            self.setStatusToDb()
 
-    
     def getTitlesAndUrls(self):
         ret = {}
         for title in self.status.keys():
@@ -67,3 +58,6 @@ class User():
 
     def getUrlFromName(self, title):
         return self.status[title]["url"]
+    
+    def isPresent(self, title):
+        return title in self.status.keys()
