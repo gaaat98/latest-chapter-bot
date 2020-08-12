@@ -77,7 +77,7 @@ def listAllTitles(update, context):
     else:
         keyboard = [[InlineKeyboardButton(t if len(t)<=30 else t[0:30]+"...", callback_data=(t if len(t)<=30 else t[0:30]+"..."))] for t in titles]
         keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
-        update.message.reply_markup(  '*Seleziona un manga dalla lista:*\n',
+        update.message.reply_markdown(  '*Seleziona un manga dalla lista:*\n',
                                     reply_markup=InlineKeyboardMarkup(keyboard))
     return LISTOPTIONS
 
@@ -219,8 +219,8 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://03800a875d17.ngrok.io/' + TOKEN)
-    updater.bot.setWebhook('***REMOVED***' + TOKEN)
+    updater.bot.setWebhook('https://59892829704a.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
