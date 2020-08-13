@@ -1,1 +1,1 @@
-web: python3 bot.py > log.txt
+web: python3 bot.py
