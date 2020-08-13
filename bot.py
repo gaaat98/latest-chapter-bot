@@ -9,6 +9,7 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
                           ConversationHandler, CallbackQueryHandler)
 from telegram import (Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
 import os
+from datetime import time
 
 from fetcher import Fetcher
 
@@ -31,22 +32,54 @@ def instantiateFetcher(update, context):
         user = update.message.from_user
         context.user_data["fetcher"] = Fetcher(user.id)
 
+        if context.user_data["fetcher"].notificationStatus():
+            instantiateNotifier(update, context)
+
+def instantiateNotifier(update, context):
+    job_queue = context.job_queue
+    if "chat_id" not in context.user_data.keys():
+        context.user_data["chat_id"] = update.message.chat.id
+    
+    # runs every six hours starting at midnight
+    job_queue.run_repeating(periodicCheck, interval=21600, first=time(0,0,0,0), name="PeriodicUpdateNotifier", context=context.user_data)
+
+def removeNotifier(update, context):
+    job_queue = context.job_queue
+    job =  job_queue.get_jobs_by_name("PeriodicUpdateNotifier")[0]
+    job.schedule_removal()
+    job =  job_queue.jobs()
+    try:
+        del context.user_data["chat_id"]
+    except:
+        pass
+
 def sendTitleMessage(update, context, data):
+    chat_id = update.message.chat_id
     for m in data:
         try:
-            update.message.reply_markdown(f'*=== {m[0]} ===*\n'
+            context.bot.sendMessage(chat_id=chat_id, text=f'*=== {m[0]} ===*\n'
                                         f'Ultimo capitolo: *{m[1]}*\n'
-                                        f'*LINK:* {m[2]}')
+                                        f'*LINK:* {m[2]}', parse_mode="MARKDOWN")
         except:
-            update.message.reply_html(f'<b>=== {m[0]} ===</b>\n'
+            context.bot.sendMessage(chat_id=chat_id, text=f'<b>=== {m[0]} ===</b>\n'
                                     f'Ultimo capitolo: <b>{m[1]}</b>\n'
-                                    f'<b>LINK:</b> {m[2]}')
+                                    f'<b>LINK:</b> {m[2]}', parse_mode="HTML")
+
+def sendUpdateMessage(context, data):
+    chat_id = context.job.context["chat_id"]
+
+    message = "<b>HO TROVATO I SEGUENTI NUOVI CAPITOLI:</b>\n\n"
+    for m in data:
+        message += f'<b>=== {m[0]} ===</b>\nUltimo capitolo: <b>{m[1]}</b>\n<b>LINK:</b> {m[2]}\n\n'
+    message += "/notify per disabilitare le notifiche."
+
+    context.bot.sendMessage(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
 
 def start(update, context):
     """Send a message when the command /start is issued."""
     user = update.message.from_user
     instantiateFetcher(update, context)
-    reply_keyboard = [['/add manga'], ['/check for updates'], ['/list and manage manga']]
+    reply_keyboard = [['/add manga'], ['/check for updates'], ['/list and manage manga'], ['/notify to enable or disable notifications'], ['/help']]
     keyboard = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     update.message.reply_text(f'Benvenuto {user.first_name}!\n'
                                'Cosa vuoi fare?',
@@ -55,10 +88,12 @@ def start(update, context):
 def help(update, context):
     """Send a message when the command /help is issued."""
     update.message.reply_markdown(  'Comandi:\n'
-                                '/start    --- guided procedure\n'
-                                '/add      --- to add manga\n'
-                                '/check  --- check for updates of all manga\n'
-                                '/list        --- list mangas --> /remove  /latest chapter')
+                                '/start    ---  guided procedure, use if notification service stops working\n'
+                                '/add      ---  to add manga\n'
+                                '/check  ---  check for updates of all mangas\n'
+                                '/list        ---  list and manage mangas\n'
+                                '/notify   ---  enable/disable new chapters notifications\n'
+                                '/help     ---  show this message\n')
 
 def checkAll(update, context):
     instantiateFetcher(update, context)
@@ -89,7 +124,7 @@ def listTitleOptions(update, context):
     else:
         if query.data != "$$check_user_data$$":
             context.user_data["title"] = query.data
-        keyboard = [[InlineKeyboardButton("Rimuovi", callback_data="remove")], [InlineKeyboardButton("Ultimo capitolo", callback_data="latest")]]
+        keyboard = [[InlineKeyboardButton("Ultimo capitolo", callback_data="latest")], [InlineKeyboardButton("Rimuovi", callback_data="remove")]]
         keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
         query.edit_message_text(text="*Seleziona un'opzione:*\n",
                                 reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="MARKDOWN")
@@ -198,18 +233,25 @@ def fallback(update, context):
 
 def notify(update, context):
     instantiateFetcher(update, context)
-    if "chat_id" not in context.user_data.keys():
-        context.user_data["chat_id"] = update.message.chat.id
+    chat_id = update.message.chat.id
 
     if context.user_data["fetcher"].notificationStatus():
         context.user_data["fetcher"].setNotificationStatus(False)
-        context.bot.sendMessage(chat_id=context.user_data["chat_id"], text="Notifiche disabilitate!")
-        del context.user_data["chat_id"]
+        removeNotifier(update, context)
+        context.bot.sendMessage(chat_id=chat_id, text="Notifiche disabilitate!")
     else:
         context.user_data["fetcher"].setNotificationStatus(True)
-        context.bot.sendMessage(chat_id=context.user_data["chat_id"], text="Notifiche abilitate!")
-    
-    print(context.user_data)
+        instantiateNotifier(update, context)
+        context.bot.sendMessage(chat_id=chat_id, text="Notifiche abilitate!")
+
+
+def periodicCheck(context):
+    chat_id = context.job.context["chat_id"]
+    fetcher = context.job.context["fetcher"]
+    updates = fetcher.checkRelease(updatesOnly=True)
+    if updates != []:
+        sendUpdateMessage(context, updates)
+
 
 
 
@@ -248,7 +290,7 @@ def main():
 
     dp.add_handler(CommandHandler("start", start), 0)
     dp.add_handler(CommandHandler("check", checkAll), 0)
-    dp.add_handler(CommandHandler("notify", notify), 0)
+    dp.add_handler(CommandHandler("notify", notify, pass_job_queue=True), 0)
     dp.add_handler(CommandHandler("help", help), 0)
     
 
@@ -259,8 +301,8 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://02034edd4179.ngrok.io/' + TOKEN)
-    updater.bot.setWebhook('***REMOVED***' + TOKEN)
+    updater.bot.setWebhook('https://796630ea954e.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.

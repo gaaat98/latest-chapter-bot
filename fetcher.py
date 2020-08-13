@@ -50,15 +50,21 @@ class Fetcher():
 
         return [[title, lastn, lasturl]]
 
-    def checkRelease(self):
+    def checkRelease(self, updatesOnly=False):
         mangas = self.master.getTitlesAndUrls()
         res = []
-        for title in mangas.keys():
-            _, latestn, latesturl = self.fetchLatestChapter(title)[0]
-            if self.master.getLatest(title) < latestn:
-                self.master.updateLatest(title, latestn, latesturl)
-            
-            res.append((title, latestn, latesturl))
+        if updatesOnly:
+            for title in mangas.keys():
+                _, latestn, latesturl = self.fetchLatestChapter(title)[0]
+                if self.master.getLatest(title) < latestn:
+                    self.master.updateLatest(title, latestn, latesturl)
+                    res.append((title, latestn, latesturl))
+        else:
+            for title in mangas.keys():
+                _, latestn, latesturl = self.fetchLatestChapter(title)[0]
+                if self.master.getLatest(title) < latestn:
+                    self.master.updateLatest(title, latestn, latesturl)
+                res.append((title, latestn, latesturl))
         
         return res
 
