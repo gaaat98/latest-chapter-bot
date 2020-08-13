@@ -31,6 +31,7 @@ def instantiateFetcher(update, context):
     if "fetcher" not in context.user_data.keys():
         user = update.message.from_user
         context.user_data["fetcher"] = Fetcher(user.id)
+        logger.info(f'Fetcher for user {user} has been instantiated successfully!')
 
         if context.user_data["fetcher"].notificationStatus():
             instantiateNotifier(update, context)
@@ -42,6 +43,7 @@ def instantiateNotifier(update, context):
     
     # runs every six hours starting at midnight
     job_queue.run_repeating(periodicCheck, interval=21600, first=time(0,0,0,0), name="PeriodicUpdateNotifier", context=context.user_data)
+    logger.info(f'Notifier for user {update.message.from_user} has been instantiated succesfully!')
 
 def removeNotifier(update, context):
     job_queue = context.job_queue
@@ -79,7 +81,7 @@ def start(update, context):
     """Send a message when the command /start is issued."""
     user = update.message.from_user
     instantiateFetcher(update, context)
-    reply_keyboard = [['/add manga'], ['/check for updates'], ['/list and manage manga'], ['/notify to enable or disable notifications'], ['/help']]
+    reply_keyboard = [['/add manga'], ['/check for latest chapters'], ['/list and manage manga'], ['/notify to enable or disable notifications'], ['/help']]
     keyboard = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     update.message.reply_text(f'Benvenuto {user.first_name}!\n'
                                'Cosa vuoi fare?',
