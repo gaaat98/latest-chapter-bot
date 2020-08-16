@@ -12,6 +12,7 @@ import os
 from datetime import time
 
 from fetcher import Fetcher
+import pymongo
 
 PORT = int(os.environ.get('PORT', 5000))
 
@@ -25,35 +26,19 @@ TOKEN = '1390945914:AAFlBPy0JbmtRzXg7ob2T3TRKoDaiVgpwpI'
 TITLES, SELECTANDFETCH = range(2)
 LISTOPTIONS, EXECUTEOPTION = range(2)
 
+FETCHERS = {}
+
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 def instantiateFetcher(update, context):
     if "fetcher" not in context.user_data.keys():
-        user = update.message.from_user
-        context.user_data["fetcher"] = Fetcher(user.id)
-        logger.info(f'Fetcher for user {user} has been instantiated successfully!')
-
-        if context.user_data["fetcher"].notificationStatus():
-            instantiateNotifier(update, context)
-
-def instantiateNotifier(update, context):
-    job_queue = context.job_queue
-    if "chat_id" not in context.user_data.keys():
-        context.user_data["chat_id"] = update.message.chat.id
-    
-    # runs every six hours starting at midnight
-    job_queue.run_repeating(periodicCheck, interval=21600, first=time(0,0,0,0), name="PeriodicUpdateNotifier", context=context.user_data)
-    logger.info(f'Notifier for user {update.message.from_user} has been instantiated succesfully!')
-
-def removeNotifier(update, context):
-    job_queue = context.job_queue
-    job =  job_queue.get_jobs_by_name("PeriodicUpdateNotifier")[0]
-    job.schedule_removal()
-    job =  job_queue.jobs()
-    try:
-        del context.user_data["chat_id"]
-    except:
-        pass
+        user_id = update.message.from_user.id
+        chat_id = update.message.chat.id
+        if user_id in FETCHERS.keys():
+            context.user_data["fetcher"] = FETCHERS[user_id]
+        else:
+            context.user_data["fetcher"] = Fetcher(user_id, chat_id)
+        logger.info(f'Fetcher for user {user_id} has been instantiated successfully!')
 
 def sendTitleMessage(update, context, data):
     chat_id = update.message.chat_id
@@ -69,13 +54,14 @@ def sendTitleMessage(update, context, data):
 
 def sendUpdateMessage(context, data):
     chat_id = context.job.context["chat_id"]
+    bot =  context.job.context["bot"]
 
     message = "<b>HO TROVATO I SEGUENTI NUOVI CAPITOLI:</b>\n\n"
     for m in data:
         message += f'<b>=== {m[0]} ===</b>\nUltimo capitolo: <b>{m[1]}</b>\n<b>LINK:</b> {m[2]}\n\n'
     message += "/notify per disabilitare le notifiche."
 
-    context.bot.sendMessage(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
+    bot.sendMessage(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
 
 def start(update, context):
     """Send a message when the command /start is issued."""
@@ -235,26 +221,53 @@ def fallback(update, context):
 
 def notify(update, context):
     instantiateFetcher(update, context)
+    user_id = update.message.from_user.id
     chat_id = update.message.chat.id
+    fetcher = context.user_data["fetcher"]
+    bot = context.bot
+    job_queue = context.job_queue
 
-    if context.user_data["fetcher"].notificationStatus():
-        context.user_data["fetcher"].setNotificationStatus(False)
-        removeNotifier(update, context)
-        context.bot.sendMessage(chat_id=chat_id, text="Notifiche disabilitate!")
+    if fetcher.notificationStatus():
+        fetcher.setNotificationStatus(False)
+        removeNotifier(job_queue, user_id)
+        bot.sendMessage(chat_id=chat_id, text="Notifiche disabilitate!")
     else:
-        context.user_data["fetcher"].setNotificationStatus(True)
-        instantiateNotifier(update, context)
-        context.bot.sendMessage(chat_id=chat_id, text="Notifiche abilitate!")
+        fetcher.setNotificationStatus(True)
+        instantiateNotifier(job_queue, fetcher, bot, user_id, chat_id)
+        bot.sendMessage(chat_id=chat_id, text="Notifiche abilitate!")
 
+def instantiateNotifier(job_queue, fetcher, bot, userid, chatid):
+    # runs every six hours starting at midnight
+    context = {"fetcher": fetcher, "chat_id": chatid, "bot": bot}
+    job_queue.run_repeating(periodicCheck, interval=2000, first=0, name="PeriodicUpdateNotifier"+str(userid), context=context)
+    logger.info(f'Notifier for user {userid} has been instantiated succesfully!')
+
+def removeNotifier(job_queue, userid):
+    job =  job_queue.get_jobs_by_name("PeriodicUpdateNotifier"+str(userid))[0]
+    job.schedule_removal()
 
 def periodicCheck(context):
     fetcher = context.job.context["fetcher"]
     updates = fetcher.checkRelease(updatesOnly=True)
+    chat_id = context.job.context["chat_id"]
+    print("periodic check for", chat_id)
     if updates != []:
         sendUpdateMessage(context, updates)
 
+def startupRoutine(updater):
+    mongo_url = os.getenv('MONGODB_URI')
+    #mongo_url = "***REMOVED***"
+    db = pymongo.MongoClient(mongo_url, retryWrites=False)
+    collection = db['***REMOVED***'].statuses
+    users = collection.find({},{"_id": 1, "notifications": 1, "chat_id": 1})
 
-
+    for u in users:
+        user_id = u["_id"]
+        chat_id = u["chat_id"]
+        FETCHERS[user_id] = Fetcher(user_id, chat_id)
+        if u["notifications"] == True:
+            instantiateNotifier(updater.job_queue, FETCHERS[user_id], updater.bot, user_id, chat_id)
+    db.close()
 
 def main():
     """Start the bot."""
@@ -294,7 +307,7 @@ def main():
     dp.add_handler(CommandHandler("notify", notify, pass_job_queue=True), 0)
     dp.add_handler(CommandHandler("help", help), 0)
     
-
+    startupRoutine(updater)
     # log all errors
     dp.add_error_handler(error)
 
@@ -302,11 +315,12 @@ def main():
     updater.start_webhook(listen="0.0.0.0",
                           port=int(PORT),
                           url_path=TOKEN)
-    #updater.bot.setWebhook('https://796630ea954e.ngrok.io/' + TOKEN)
+    #updater.bot.setWebhook('https://9fe8e3f70c57.ngrok.io/' + TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
+    
     updater.idle()
 
 if __name__ == '__main__':

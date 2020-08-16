@@ -3,9 +3,10 @@ import pymongo
 import json
 
 class User():
-    def __init__(self, userID="test"):
+    def __init__(self, userID, chatID):
         self.connectToDb()
         self.userID = userID
+        self.chatID = chatID
         self.getStatusFromDb()
     
     def connectToDb(self):
@@ -25,6 +26,7 @@ class User():
     def setStatusToDb(self):
         data = {}
         data["_id"] = self.userID
+        data["chat_id"] = self.chatID
         data["notifications"] = self.notifications
         data["status"] = self.status
         self.db.delete_one({"_id":self.userID})

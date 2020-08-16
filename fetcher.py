@@ -4,9 +4,9 @@ import difflib
 from user import User
 
 class Fetcher():
-    def __init__(self, username):
+    def __init__(self, username, chatid):
         self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
-        self.master = User(username)
+        self.master = User(username, chatid)
 
     def fetchManga(self, title=""):
         title.replace(" ", "+")
