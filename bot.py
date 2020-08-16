@@ -1,9 +1,3 @@
-"""
-Simple Bot to reply to Telegram messages taken from the python-telegram-bot examples.
-Deployed using heroku.
-Author: liuhh02 https://medium.com/@liuhh02
-"""
-
 import logging
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
                           ConversationHandler, CallbackQueryHandler)
@@ -21,15 +15,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
-TOKEN = '1390945914:AAFlBPy0JbmtRzXg7ob2T3TRKoDaiVgpwpI'
+TOKEN = '***REMOVED***'
 
 TITLES, SELECTANDFETCH = range(2)
 LISTOPTIONS, EXECUTEOPTION = range(2)
 
 FETCHERS = {}
 
-# Define a few command handlers. These usually take the two arguments update and
-# context. Error handlers also receive the raised TelegramError object in error.
 def instantiateFetcher(update, context):
     if "fetcher" not in context.user_data.keys():
         user_id = update.message.from_user.id
@@ -272,8 +264,6 @@ def startupRoutine(updater):
 def main():
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
-    # Make sure to set use_context=True to use the new context based callbacks
-    # Post version 12 this will no longer be necessary
     updater = Updater(TOKEN, use_context=True)
 
     # Get the dispatcher to register handlers
@@ -312,10 +302,7 @@ def main():
     dp.add_error_handler(error)
 
     # Start the Bot
-    updater.start_webhook(listen="0.0.0.0",
-                          port=int(PORT),
-                          url_path=TOKEN)
-    #updater.bot.setWebhook('https://9fe8e3f70c57.ngrok.io/' + TOKEN)
+    updater.start_webhook(listen="0.0.0.0", port=int(PORT), url_path=TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since

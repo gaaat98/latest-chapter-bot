@@ -11,7 +11,6 @@ class User():
     
     def connectToDb(self):
         mongo_url = os.getenv('MONGODB_URI')
-        #mongo_url = "***REMOVED***"
         self.db = pymongo.MongoClient(mongo_url, retryWrites=False)['***REMOVED***'].statuses
 
     def getStatusFromDb(self):
