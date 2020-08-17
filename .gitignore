@@ -5,8 +5,9 @@ __pycache__/
 # Visual Studio Code Settings
 .vscode/
 
-# Test files
+# Misc files
 main.py
 comandi.txt
 MangaNotifier.code-workspace
 switch2local.txt
+botpic.jpg

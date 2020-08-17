@@ -1,26 +1,12 @@
-import logging
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
-                          ConversationHandler, CallbackQueryHandler)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler)
 from telegram import (Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
+
+import logging
 import os
 from datetime import time
+from pymongo import MongoClient
 
 from fetcher import Fetcher
-import pymongo
-
-PORT = int(os.environ.get('PORT', 5000))
-
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
-logger = logging.getLogger(__name__)
-TOKEN = '***REMOVED***'
-
-TITLES, SELECTANDFETCH = range(2)
-LISTOPTIONS, EXECUTEOPTION = range(2)
-
-FETCHERS = {}
 
 def instantiateFetcher(update, context):
     if "fetcher" not in context.user_data.keys():
@@ -99,7 +85,7 @@ def listTitleOptions(update, context):
     query = update.callback_query
     query.answer()
     if query.data == "cancel_operation":
-        query.edit_message_text(text="Operazione annullata")
+        query.edit_message_text(text="Operazione annullata.")
         return ConversationHandler.END
     else:
         if query.data != "$$check_user_data$$":
@@ -208,7 +194,9 @@ def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 def fallback(update, context):
-    print("Filtrato comando")
+    user_id = update.message.from_user.id
+    filtered = update.message.text
+    logger.info(f"Filtered command while in conversation with user {user_id}: '{filtered}'.")
     return
 
 def notify(update, context):
@@ -242,14 +230,13 @@ def periodicCheck(context):
     fetcher = context.job.context["fetcher"]
     updates = fetcher.checkRelease(updatesOnly=True)
     chat_id = context.job.context["chat_id"]
-    print("periodic check for", chat_id)
+    logger.info(f"Periodic check for chat_id {chat_id}")
     if updates != []:
         sendUpdateMessage(context, updates)
 
 def startupRoutine(updater):
     mongo_url = os.getenv('MONGODB_URI')
-    #mongo_url = "***REMOVED***"
-    db = pymongo.MongoClient(mongo_url, retryWrites=False)
+    db = MongoClient(mongo_url, retryWrites=False)
     collection = db['***REMOVED***'].statuses
     users = collection.find({},{"_id": 1, "notifications": 1, "chat_id": 1})
 
@@ -311,4 +298,16 @@ def main():
     updater.idle()
 
 if __name__ == '__main__':
+    # Enable logging
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    PORT = int(os.environ.get('PORT', 5000))
+    TOKEN = '***REMOVED***'
+
+    TITLES, SELECTANDFETCH = range(2)
+    LISTOPTIONS, EXECUTEOPTION = range(2)
+
+    FETCHERS = {}
+
     main()
