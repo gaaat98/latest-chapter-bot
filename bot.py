@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import time
 from pymongo import MongoClient
+from requests import post
 
 from fetcher import Fetcher
 
@@ -235,6 +236,7 @@ def periodicCheck(context):
         sendUpdateMessage(context, updates)
 
 def startupRoutine(updater):
+    # instantiating notifiers
     mongo_url = os.getenv('MONGODB_URI')
     db = MongoClient(mongo_url, retryWrites=False)
     collection = db['***REMOVED***'].statuses
@@ -247,6 +249,34 @@ def startupRoutine(updater):
         if u["notifications"] == True:
             instantiateNotifier(updater.job_queue, FETCHERS[user_id], updater.bot, user_id, chat_id)
     db.close()
+
+    # instantiating auto-pinger
+    instantiatePinger(updater)
+
+def instantiatePinger(updater):
+    target = updater.bot.get_webhook_info()["url"]
+    context = {"url": target}
+    updater.job_queue.run_repeating(ping, interval=900, first=0, name="KeepUpPinger", context=context)
+    logger.info(f'KeepUp pinger has been instantiated succesfully!')
+
+def ping(context):
+    url = context.job.context["url"]
+    headers = {"content-type": "application/json", 'User-Agent': None, 'accept': None}
+    data = {
+        "update_id": 0, 
+        "message": {
+                "message_id": 0,
+                "date": 0,
+                "text": "ping"
+        }
+    }
+    try:
+        r = post(url, json=data, headers=headers )
+        logger.info(f"Pinged Heroku app to keep up service. STATUS CODE: {r.status_code}")
+    except:
+        logger.info(f"Failed to ping Heroku. Will try again later.")
+    
+
 
 def main():
     """Start the bot."""
@@ -284,7 +314,6 @@ def main():
     dp.add_handler(CommandHandler("notify", notify, pass_job_queue=True), 0)
     dp.add_handler(CommandHandler("help", help), 0)
     
-    startupRoutine(updater)
     # log all errors
     dp.add_error_handler(error)
 
@@ -295,6 +324,7 @@ def main():
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
     
+    startupRoutine(updater)
     updater.idle()
 
 if __name__ == '__main__':
