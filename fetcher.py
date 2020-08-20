@@ -77,7 +77,7 @@ class Fetcher():
     def removeFromList(self, title):
         self.master.removeManga(title)
     
-    def notificationStatus(self):
+    def getNotificationStatus(self):
         return self.master.notificationStatus()
     
     def setNotificationStatus(self, notifications):
@@ -85,4 +85,13 @@ class Fetcher():
             self.master.enableNotifications()
         else:
             self.master.disableNotifications()
+    
+    def setUserLanguage(self, lang):
+        if lang in ["it", "en"]:
+            self.master.setLanguage(lang)
+        else:
+            self.master.setLanguage("en")
+
+    def getUserLanguage(self):
+       return self.master.getLanguage()
 

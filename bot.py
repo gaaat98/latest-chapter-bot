@@ -3,231 +3,374 @@ from telegram import (Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeybo
 
 import logging
 import os
+import json
 from datetime import time
 from pymongo import MongoClient
 from requests import post
 
 from fetcher import Fetcher
+from credentials import TOKEN
 
-def instantiateFetcher(update, context):
-    if "fetcher" not in context.user_data.keys():
-        user_id = update.message.from_user.id
-        chat_id = update.message.chat.id
-        if user_id in FETCHERS.keys():
-            context.user_data["fetcher"] = FETCHERS[user_id]
-        else:
-            context.user_data["fetcher"] = Fetcher(user_id, chat_id)
-        logger.info(f'Fetcher for user {user_id} has been instantiated successfully!')
-
+############################### helper methods ################################
 def sendTitleMessage(update, context, data):
+    """Helper method to send multiple single messages after user request for updates. 
+    Data is a list of tuples containing (manga_title, latest_chapter_number, link_to_latest_chapter)."""
+
     chat_id = update.message.chat_id
-    for m in data:
-        try:
-            context.bot.sendMessage(chat_id=chat_id, text=f'*=== {m[0]} ===*\n'
-                                        f'Ultimo capitolo: *{m[1]}*\n'
-                                        f'*LINK:* {m[2]}', parse_mode="MARKDOWN")
-        except:
-            context.bot.sendMessage(chat_id=chat_id, text=f'<b>=== {m[0]} ===</b>\n'
-                                    f'Ultimo capitolo: <b>{m[1]}</b>\n'
-                                    f'<b>LINK:</b> {m[2]}', parse_mode="HTML")
+    lang = context.user_data["fetcher"].getUserLanguage()
+    for manga in data:
+        text = LOCALE[lang]["mangaMessage_html"].format(*manga)
+        context.bot.sendMessage(chat_id=chat_id, text=text, parse_mode="HTML")
 
 def sendUpdateMessage(context, data):
+    """Helper method to send single message after updates are automatically found. 
+    Data is a list of tuples containing (manga_title, latest_chapter_number, link_to_latest_chapter)."""
+
     chat_id = context.job.context["chat_id"]
     bot =  context.job.context["bot"]
+    lang = context.job.context["fetcher"].getUserLanguage()
 
-    message = "<b>HO TROVATO I SEGUENTI NUOVI CAPITOLI:</b>\n\n"
-    for m in data:
-        message += f'<b>=== {m[0]} ===</b>\nUltimo capitolo: <b>{m[1]}</b>\n<b>LINK:</b> {m[2]}\n\n'
-    message += "/notify per disabilitare le notifiche."
+    text = LOCALE[lang]["updateHeader_html"]
+    for manga in data:
+        text += LOCALE[lang]["mangaMessage_html"].format(*manga)
+        text += "\n\n"
+    text += LOCALE[lang]["updateFooter"]
 
-    bot.sendMessage(chat_id=chat_id, text=message, parse_mode="HTML", disable_web_page_preview=True)
+    bot.sendMessage(chat_id=chat_id, text=text, parse_mode="HTML", disable_web_page_preview=True)
 
+def emptyListMessage(update, context):
+    """Sends message stating that user's list is empty"""
+
+    lang = context.user_data["fetcher"].getUserLanguage()
+
+    text = LOCALE[lang]["emptyListMessage_MarkdownV2"]
+    update.message.reply_markdown_v2(text)
+
+def generateTitleKeyboard(context, options):
+    """Generates inline keyboard with manga titles"""
+
+    lang = context.user_data["fetcher"].getUserLanguage()
+    keyboard = []
+
+    if isinstance(options, list):
+        elements = options
+    else:
+        elements = options.keys()
+        context.user_data["title_list"] = options
+
+
+    for t in elements:
+        if len(t) > 64:
+            text = t[0:32]+"..."
+            data = "$$check_user_data$$" + text
+            context.user_data[data] = t
+        else:
+            text = t
+            data = t
+        keyboard.append( [InlineKeyboardButton(text, callback_data=data)] )
+    keyboard.append([InlineKeyboardButton(LOCALE[lang]["cancel"], callback_data="cancel_operation")])
+    return keyboard
+
+def fetchLatest(fetcher, title, url=None):
+    """Fetches latest chapter of given manga. url must be 
+    None if the given manga is already in the list"""
+
+    if url == None:
+        data = fetcher.fetchLatestChapter(title)
+    else:
+        data = fetcher.selectMangaAddAndFetch(title, url)
+
+    return data
+###############################################################################
+
+############################### single handlers ###############################
 def start(update, context):
-    """Send a message when the command /start is issued."""
-    user = update.message.from_user
+    """Sends welcome message when the command /start is issued."""
+
     instantiateFetcher(update, context)
-    reply_keyboard = [['/add manga'], ['/check for latest chapters'], ['/list and manage manga'], ['/notify to enable or disable notifications'], ['/help']]
-    keyboard = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    update.message.reply_text(f'Benvenuto {user.first_name}!\n'
-                               'Cosa vuoi fare?',
-                               reply_markup=keyboard)
+
+    user_first_name = update.message.chat.first_name
+    lang = context.user_data["fetcher"].getUserLanguage()
+    notification_status = LOCALE[lang]["ON"] if context.user_data["fetcher"].getNotificationStatus() else LOCALE[lang]["OFF"]
+
+    keyboard = ReplyKeyboardMarkup(LOCALE[lang]["startKeyboard"], one_time_keyboard=True)
+    text = LOCALE[lang]["startMessage_MarkdownV2"].format(user_first_name, notification_status)
+
+    update.message.reply_markdown_v2(text=text, reply_markup=keyboard)
 
 def help(update, context):
-    """Send a message when the command /help is issued."""
-    update.message.reply_markdown(  'Comandi:\n'
-                                '/start    ---  guided procedure, use if notification service stops working\n'
-                                '/add      ---  to add manga\n'
-                                '/check  ---  check for updates of all mangas\n'
-                                '/list        ---  list and manage mangas\n'
-                                '/notify   ---  enable/disable new chapters notifications\n'
-                                '/help     ---  show this message\n')
+    """Sends detailed help message when the command /help is issued."""
 
-def checkAll(update, context):
     instantiateFetcher(update, context)
-    res = context.user_data["fetcher"].checkRelease()
-    if res == []:
+
+    lang = context.user_data["fetcher"].getUserLanguage()
+    text = LOCALE[lang]["helpMessage_Markdown"]
+    update.message.reply_markdown(text)
+
+def check(update, context):
+    """Sends lastes chapters when the command /check is issued."""
+
+    instantiateFetcher(update, context)
+
+    data = context.user_data["fetcher"].checkRelease()
+    if data == []:
         emptyListMessage(update, context)
     else:
-        sendTitleMessage(update, context, res)
+        sendTitleMessage(update, context, data)
 
-def listAllTitles(update, context):
+def notify(update, context):
+    """Enables or disables notifications alternately when 
+    the command /notify is issued."""
+
     instantiateFetcher(update, context)
+
+    user_id = update.message.from_user.id
+    chat_id = update.message.chat.id
+    fetcher = context.user_data["fetcher"]
+    lang = fetcher.getUserLanguage()
+    bot = context.bot
+    job_queue = context.job_queue
+
+    if fetcher.getNotificationStatus():
+        fetcher.setNotificationStatus(False)
+        removeNotifier(job_queue, user_id)
+        text = LOCALE[lang]["notificationsDisabled"]
+        bot.sendMessage(chat_id=chat_id, text=text)
+    else:
+        fetcher.setNotificationStatus(True)
+        instantiateNotifier(job_queue, fetcher, bot, user_id, chat_id)
+        text = LOCALE[lang]["notificationsEnabled"]
+        bot.sendMessage(chat_id=chat_id, text=text)
+
+def error(update, context):
+    """Log Errors caused by Updates."""
+
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
+###############################################################################
+
+###################### /list conversation handler states ######################
+def listAllTitles(update, context):
+    """Lists all manga in user's list"""
+
+    instantiateFetcher(update, context)
+
     titles = context.user_data["fetcher"].listMangaTitles()
     if titles == []:
         emptyListMessage(update, context)
         return ConversationHandler.END
     else:
-        keyboard = generateTitleKeyboard(context, titles)
-        update.message.reply_markdown(  '*Seleziona un manga dalla lista:*\n',
-                                    reply_markup=InlineKeyboardMarkup(keyboard))
+        lang = context.user_data["fetcher"].getUserLanguage()
+        keyboard = InlineKeyboardMarkup( generateTitleKeyboard(context, titles) )
+        text = LOCALE[lang]["mangaSelectionHeader_MarkdownV2"]
+        update.message.reply_markdown_v2(text, reply_markup=keyboard)
     return LISTOPTIONS
 
 def listTitleOptions(update, context):
+    """Lists all options available for a manga in user's list"""
+
     query = update.callback_query
     query.answer()
+    lang = context.user_data["fetcher"].getUserLanguage()
+
     if query.data == "cancel_operation":
-        query.edit_message_text(text="Operazione annullata.")
+        text = LOCALE[lang]["cancelOperation"]
+        query.edit_message_text(text=text)
         return ConversationHandler.END
     else:
-        if query.data != "$$check_user_data$$":
+        if "$$check_user_data$$" not in query.data:
             context.user_data["title"] = query.data
-        keyboard = [[InlineKeyboardButton("Ultimo capitolo", callback_data="latest")], [InlineKeyboardButton("Rimuovi", callback_data="remove")]]
-        keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
-        query.edit_message_text(text="*Seleziona un'opzione:*\n",
-                                reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="MARKDOWN")
+        else:
+            context.user_data["title"] = context.user_data[query.data]
+            for key in list( context.user_data.keys() ):
+                if "$$check_user_data$$" in key:
+                    del context.user_data[key]
+        keyboard = [
+                [InlineKeyboardButton(LOCALE[lang]["latestChapter"], callback_data="latest")], 
+                [InlineKeyboardButton(LOCALE[lang]["remove"], callback_data="remove")],
+                [InlineKeyboardButton(LOCALE[lang]["cancel"], callback_data="cancel_operation")]
+            ]
+        keyboard = InlineKeyboardMarkup(keyboard)
+        text = LOCALE[lang]["optionSelectionHeader_MarkdownV2"].format(context.user_data["title"])
+        query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
+
         return EXECUTEOPTION
 
 def executeOption(update, context):
+    """Executes chosen option"""
+
     query = update.callback_query
     query.answer()
+    lang = context.user_data["fetcher"].getUserLanguage()
+
     if query.data == "cancel_operation":
-        query.edit_message_text(text="Operazione annullata.")
+        text = LOCALE[lang]["cancelOperation"]
+        query.edit_message_text(text=text)
         return ConversationHandler.END
     elif query.data == "remove":
-        context.user_data["fetcher"].removeFromList(context.user_data["title"])
+        title = context.user_data["title"]
+        context.user_data["fetcher"].removeFromList(title)
+        text = LOCALE[lang]["titleRemoved_MarkdownV2"].format(title)
+        query.edit_message_text(text=text, parse_mode="MarkdownV2")
     elif query.data == "latest":
-        fetchLatest(query, context)
-    query.edit_message_text(text="Operazione completata!")
+        title = context.user_data["title"]
+        data = fetchLatest(context.user_data["fetcher"], title)
+        sendTitleMessage(query, context, data)
+
+        text = LOCALE[lang]["singleLatestHeader_MarkdownV2"]
+        query.edit_message_text(text=text, parse_mode="MarkdownV2")
+        #query.message.delete()
+
     try:
         del context.user_data["title"]
-        del context.user_data["title_list"]
     except:
-        pass
+        logger.warning('Unable to delete item in user_data: {}'.format(context.user_data))
+
     
     return ConversationHandler.END
+###############################################################################
 
-def emptyListMessage(update, context):
-    message = "No titles found in your list!\nStart adding with /add"
-    update.message.reply_markdown(message)
-
+####################### /add conversation handler states #######################
 def add(update, context):
+    """Begins the procedure (through different conversation states) of title addition when the command /help is issued."""
     instantiateFetcher(update, context)
-    update.message.reply_text(f'Inserisci il titolo da ricercare')
+    lang = context.user_data["fetcher"].getUserLanguage()
+
+    text = LOCALE[lang]["addMangaHeader_MarkdownV2"]
+    message_id = update.message.reply_markdown_v2(text)["message_id"]
+    context.chat_data["target_message_id"] = message_id #stored for clean-up in case of "/cancel"
     return TITLES
 
 def getTitles(update, context):
+    """Searches for corrispondences to user input and lists results"""
+
     title = update.message.text
-    options = context.user_data["fetcher"].fetchManga(title)
-    if options == {}:
-        update.message.reply_text("Not found :(")
+    results = context.user_data["fetcher"].fetchManga(title)
+    lang = context.user_data["fetcher"].getUserLanguage()
+
+    if results == {}:
+        text = LOCALE[lang]["notFound_MarkdownV2"].format(title)
+        update.message.reply_markdown_v2(text)
+        del context.chat_data["target_message_id"]
         return ConversationHandler.END
     else:
-        keyboard = generateTitleKeyboard(context, options)
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_markdown('*Ho trovato i seguenti manga:*\n',
-                               reply_markup=reply_markup)
+        keyboard = InlineKeyboardMarkup( generateTitleKeyboard(context, results) )
+        text = LOCALE[lang]["foundResultsHeader_MarkdownV2"].format(title)
+        update.message.reply_markdown_v2(text, reply_markup=keyboard)
         return SELECTANDFETCH
 
-def generateTitleKeyboard(context, options):
-    context.user_data["title_list"] = options
-    keyboard = []
-    if isinstance(options, list):
-        elements = options
-    else:
-        elements = options.keys()
-
-    for t in elements:
-        if len(t) > 64:
-            data = "$$check_user_data$$"
-            text = t[0:32]+"..."
-            context.user_data["title"] = t
-        else:
-            text = t
-            data = t
-        keyboard.append( [InlineKeyboardButton(text, callback_data=data)] )
-    keyboard.append([InlineKeyboardButton("Annulla", callback_data="cancel_operation")])
-    return keyboard
-
 def selectSearchResult(update, context):
+    """Searches for latest chapter of the selected manga and adds it to user's list"""
+
     query = update.callback_query
     query.answer()
+    lang = context.user_data["fetcher"].getUserLanguage()
+
     if query.data == "cancel_operation":
-        query.edit_message_text(text="Operazione annullata.")
+        text = LOCALE[lang]["cancelOperation"]
+        query.edit_message_text(text=text)
     else:
-        if query.data != "$$check_user_data$$":
+        if "$$check_user_data$$" not in query.data:
             context.user_data["title"] = query.data
-        context.user_data["url"] = context.user_data["title_list"][context.user_data["title"]]
-        query.edit_message_text(text="Searching...")
-        fetchLatest(query, context)
-        query.edit_message_text(text="Trovato!")
-    
+        else:
+            context.user_data["title"] = context.user_data[query.data]
+            for key in list( context.user_data.keys() ):
+                if "$$check_user_data$$" in key:
+                    del context.user_data[key]
+
+        text = LOCALE[lang]["searching"]
+        query.edit_message_text(text=text)
+
+        title = context.user_data["title"]
+        url = context.user_data["title_list"][title]
+        data = fetchLatest(context.user_data["fetcher"], title, url=url)
+        sendTitleMessage(query, context, data)
+
+        text = LOCALE[lang]["singleLatestHeader_MarkdownV2"] + "\n"
+        text += LOCALE[lang]["successfullyAdded_MarkdownV2"].format(title)
+        query.edit_message_text(text=text, parse_mode="MarkdownV2")
+
     try:
+        del context.chat_data["target_message_id"]
         del context.user_data["title"]
-        del context.user_data["url"]
         del context.user_data["title_list"]
     except:
-        pass
+        logger.warning('Unable to delete item in user_data: {} or chat_data: {}'.format(context.user_data, context.chat_data))
+
 
     return ConversationHandler.END
 
-def fetchLatest(update, context):
-    title = context.user_data["title"]
-    try:
-        url = context.user_data["url"]
-        data = context.user_data["fetcher"].selectMangaAddAndFetch(title, url)
-    except:
-        data = context.user_data["fetcher"].fetchLatestChapter(title)
-    
-    sendTitleMessage(update, context, data)
-
-def error(update, context):
-    """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
-
 def fallback(update, context):
+    """Handles /cancel command and filters other commands during /add conversation"""
+
     user_id = update.message.from_user.id
+    current_id = update.message.message_id
+    chat_id = update.message.chat.id
     filtered = update.message.text
+    lang = context.user_data["fetcher"].getUserLanguage()
+
+    if filtered == "/cancel":
+        edit_id = context.chat_data["target_message_id"]
+        for i in range(current_id, edit_id, -1):
+            context.bot.deleteMessage(chat_id=chat_id, message_id=i)
+
+        text = LOCALE[lang]["cancelOperation"]
+        context.bot.editMessageText(chat_id=chat_id, message_id=edit_id, text=text)
+        del context.chat_data["target_message_id"]
+        return ConversationHandler.END
+
+    text = LOCALE[lang]["commandsDisabled"]
+    update.message.reply_text(text)
     logger.info(f"Filtered command while in conversation with user {user_id}: '{filtered}'.")
     return
+###############################################################################
 
-def notify(update, context):
-    instantiateFetcher(update, context)
-    user_id = update.message.from_user.id
-    chat_id = update.message.chat.id
-    fetcher = context.user_data["fetcher"]
-    bot = context.bot
-    job_queue = context.job_queue
+############################### "instantiators" ###############################
+def instantiateFetcher(update, context):
+    """Creates per-user fetcher objects and stores into current user's context.user_data["fetcher"]"""
 
-    if fetcher.notificationStatus():
-        fetcher.setNotificationStatus(False)
-        removeNotifier(job_queue, user_id)
-        bot.sendMessage(chat_id=chat_id, text="Notifiche disabilitate!")
-    else:
-        fetcher.setNotificationStatus(True)
-        instantiateNotifier(job_queue, fetcher, bot, user_id, chat_id)
-        bot.sendMessage(chat_id=chat_id, text="Notifiche abilitate!")
+    if "fetcher" not in context.user_data.keys():
+        user_id = update.message.from_user.id
+        chat_id = update.message.chat.id
+
+        if user_id in FETCHERS.keys():
+            context.user_data["fetcher"] = FETCHERS[user_id]
+        else:
+            context.user_data["fetcher"] = Fetcher(user_id, chat_id)
+
+        logger.info(f'Fetcher for user {user_id} has been instantiated successfully!')
+
+    lang = update.message.from_user.language_code[0:2]
+    context.user_data["fetcher"].setUserLanguage(lang)
+
+def instantiatePinger(updater):
+    """Creates single job to periodically ping Heroku's dyno 
+    to keep it from idling"""
+
+    target = updater.bot.get_webhook_info()["url"]
+    context = {"url": target}
+    updater.job_queue.run_repeating(periodicPing, interval=900, first=0, name="KeepUpPinger", context=context)
+    logger.info(f'KeepUp pinger has been instantiated succesfully!')
 
 def instantiateNotifier(job_queue, fetcher, bot, userid, chatid):
-    # runs every six hours starting at midnight
+    """Creates per-user job to periodically (every hour) check for the release
+    of new chapters of manga in user's list"""
+
     context = {"fetcher": fetcher, "chat_id": chatid, "bot": bot}
-    job_queue.run_repeating(periodicCheck, interval=2000, first=0, name="PeriodicUpdateNotifier"+str(userid), context=context)
+    job_queue.run_repeating(periodicCheck, interval=3600, first=0, name="PeriodicUpdateNotifier"+str(userid), context=context)
     logger.info(f'Notifier for user {userid} has been instantiated succesfully!')
 
 def removeNotifier(job_queue, userid):
+    """Removes per-user jobs instantiated with instantiateNotifier"""
+
     job =  job_queue.get_jobs_by_name("PeriodicUpdateNotifier"+str(userid))[0]
     job.schedule_removal()
+###############################################################################
 
+############################## periodic routines ##############################
 def periodicCheck(context):
+    """Routine to periodically check for the release
+    of new chapters of manga in user's list"""
+
     fetcher = context.job.context["fetcher"]
     updates = fetcher.checkRelease(updatesOnly=True)
     chat_id = context.job.context["chat_id"]
@@ -235,31 +378,10 @@ def periodicCheck(context):
     if updates != []:
         sendUpdateMessage(context, updates)
 
-def startupRoutine(updater):
-    # instantiating notifiers
-    mongo_url = os.getenv('MONGODB_URI')
-    db = MongoClient(mongo_url, retryWrites=False)
-    collection = db['***REMOVED***'].statuses
-    users = collection.find({},{"_id": 1, "notifications": 1, "chat_id": 1})
+def periodicPing(context):
+    """Routine to periodically ping Heroku's dyno with an 
+    empty telegram message to keep it from idling"""
 
-    for u in users:
-        user_id = u["_id"]
-        chat_id = u["chat_id"]
-        FETCHERS[user_id] = Fetcher(user_id, chat_id)
-        if u["notifications"] == True:
-            instantiateNotifier(updater.job_queue, FETCHERS[user_id], updater.bot, user_id, chat_id)
-    db.close()
-
-    # instantiating auto-pinger
-    instantiatePinger(updater)
-
-def instantiatePinger(updater):
-    target = updater.bot.get_webhook_info()["url"]
-    context = {"url": target}
-    updater.job_queue.run_repeating(ping, interval=900, first=0, name="KeepUpPinger", context=context)
-    logger.info(f'KeepUp pinger has been instantiated succesfully!')
-
-def ping(context):
     url = context.job.context["url"]
     headers = {"content-type": "application/json", 'User-Agent': None, 'accept': None}
     data = {
@@ -275,18 +397,40 @@ def ping(context):
         logger.info(f"Pinged Heroku app to keep up service. STATUS CODE: {r.status_code}")
     except:
         logger.info(f"Failed to ping Heroku. Will try again later.")
-    
+###############################################################################
 
+def startupRoutine(updater):
+    """Fetches known users from database and instantiates 
+    their fetchers and notifiers if notifications are enabled
+    """
+
+    # fetching users
+    mongo_url = os.getenv('MONGODB_URI')
+    db = MongoClient(mongo_url, retryWrites=False)
+    collection = db['***REMOVED***'].statuses
+    users = collection.find({},{"_id": 1, "notifications": 1, "chat_id": 1})
+
+    #instantiating fetchers and notifiers
+    for u in users:
+        user_id = u["_id"]
+        chat_id = u["chat_id"]
+        FETCHERS[user_id] = Fetcher(user_id, chat_id)
+        if u["notifications"] == True:
+            instantiateNotifier(updater.job_queue, FETCHERS[user_id], updater.bot, user_id, chat_id)
+    db.close()
+
+    # instantiating auto-pinger
+    instantiatePinger(updater)
 
 def main():
-    """Start the bot."""
+    """Starts the bot."""
     # Create the Updater and pass it your bot's token.
     updater = Updater(TOKEN, use_context=True)
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
-    # ConversationHandler per la ricerca e aggiunta del mango
+    # ConversationHandler per la ricerca e aggiunta del manga
     addManga_handler = ConversationHandler(
         entry_points=[CommandHandler('add', add)],
         states={
@@ -296,34 +440,31 @@ def main():
         fallbacks=[MessageHandler(Filters.command, fallback)],
     )
 
+    # ConversationHandler per la gestione della lista di manga
     list_handler = ConversationHandler(
         entry_points=[CommandHandler('list', listAllTitles)],
         states={
             LISTOPTIONS:   [CallbackQueryHandler(listTitleOptions)],
             EXECUTEOPTION:  [CallbackQueryHandler(executeOption)],
         },
-        fallbacks=[MessageHandler(Filters.command, fallback)],
+        fallbacks=[],
     )
 
     dp.add_handler(addManga_handler, 0)
     dp.add_handler(list_handler, 0)
-    
 
     dp.add_handler(CommandHandler("start", start), 0)
-    dp.add_handler(CommandHandler("check", checkAll), 0)
+    dp.add_handler(CommandHandler("check", check), 0)
     dp.add_handler(CommandHandler("notify", notify, pass_job_queue=True), 0)
     dp.add_handler(CommandHandler("help", help), 0)
-    
+
     # log all errors
     dp.add_error_handler(error)
 
     # Start the Bot
     updater.start_webhook(listen="0.0.0.0", port=int(PORT), url_path=TOKEN)
     updater.bot.setWebhook('***REMOVED***' + TOKEN)
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    
+
     startupRoutine(updater)
     updater.idle()
 
@@ -332,8 +473,16 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logger = logging.getLogger(__name__)
 
+    try:
+        with open("lang.json", "r") as lang_dict:
+            LOCALE = json.load(lang_dict)
+        logger.info('Localization file has been loaded successfully!')
+    except:
+        logger.info('Failed to load localization file. Exiting.')
+        exit(-1)
+    
+    
     PORT = int(os.environ.get('PORT', 5000))
-    TOKEN = '***REMOVED***'
 
     TITLES, SELECTANDFETCH = range(2)
     LISTOPTIONS, EXECUTEOPTION = range(2)

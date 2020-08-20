@@ -7,6 +7,7 @@ class User():
         self.connectToDb()
         self.userID = userID
         self.chatID = chatID
+        self.language = "en"
         self.getStatusFromDb()
     
     def connectToDb(self):
@@ -26,6 +27,7 @@ class User():
         data = {}
         data["_id"] = self.userID
         data["chat_id"] = self.chatID
+        data["language"] = self.language
         data["notifications"] = self.notifications
         data["status"] = self.status
         self.db.delete_one({"_id":self.userID})
@@ -76,3 +78,10 @@ class User():
     def disableNotifications(self):
         self.notifications = False
         self.setStatusToDb()
+
+    def setLanguage(self, lang):
+        self.language = lang
+        self.setStatusToDb()
+
+    def getLanguage(self):
+        return self.language

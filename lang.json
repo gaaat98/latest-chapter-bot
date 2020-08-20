@@ -1,0 +1,72 @@
+{
+    "it": {
+        "mangaMessage_MarkdownV2": "*=== {} ===*\nUltimo capitolo: *{}*\n*LINK:* {}",
+        "mangaMessage_html": "<b>=== {} ===</b>\nUltimo capitolo: <b>{}</b>\n<b>LINK:</b> {}",
+        "updateHeader_html": "<b>HO TROVATO I SEGUENTI NUOVI CAPITOLI:</b>\n\n",
+        "updateFooter": "/notify per disabilitare le notifiche.",
+        "startMessage_MarkdownV2": "Benvenuto *{}*\\!\nNotifiche: *{}*\nCosa vuoi fare?",
+        "startKeyboard": [
+            ["/add: aggiungi manga alla tua lista"], 
+            ["/check: ricevi ultimi capitoli della tua lista"], 
+            ["/list: elenca e gestisci la tua lista"], 
+            ["/notify: abilita/disabilita notifiche ultimi capitoli"], 
+            ["/help: visualizza help dettagliato"]
+        ],
+        "ON": "ON",
+        "OFF": "OFF",
+        "helpMessage_Markdown": "*Comandi:*\n/start - inizializza il bot e abilita la tastiera con i comandi predefiniti.\n/add - avvia la procedura per l'inserimento di un manga nella lista.\n/check - controlla l'uscita di nuovi capitoli e invia all'utente l'ultimo capitolo di ogni manga nella lista.\n/list - elenca i manga presenti nella lista e ne permette la rimozione o la visualizzazione dei singoli ultimi capitoli.\n/notify - abilita o disabilita il sistema di notifiche per gli ultimi capitoli.\n/help - visualizza questo messaggio.\n",
+        "mangaSelectionHeader_MarkdownV2": "*Seleziona un manga dalla lista:*\n",
+        "optionSelectionHeader_MarkdownV2": "*Seleziona un'opzione per _{}_:*\n",
+        "cancelOperation": "Operazione annullata.",
+        "latestChapter": "Ultimo capitolo",
+        "remove": "Rimuovi",
+        "cancel": "Annulla",
+        "titleRemoved_MarkdownV2": "*{}* è stato rimosso\\!",
+        "singleLatestHeader_MarkdownV2": "Eccolo qui\\!",
+        "emptyListMessage_MarkdownV2": "*Nessun titolo trovato nella tua lista\\!*\nInizia ad aggiungere manga con /add",
+        "addMangaHeader_MarkdownV2": "*Inserisci il titolo da cercare:*",
+        "notFound_MarkdownV2": "Mi spiace, non sono riuscito a trovare nulla simile a *{}* 🥺",
+        "foundResultsHeader_MarkdownV2": "*Ho trovato i seguenti manga per _{}_:*\n",
+        "searching": "Sto cercando...",
+        "successfullyAdded_MarkdownV2": "*_{}_ è stato aggiunto alla tua lista\\!*",
+        "commandsDisabled": "I comandi sono temporaneamente disabilitati. Inserisci il titolo di un manga o annulla con /cancel.",
+        "notificationsDisabled": "Notifiche disabilitate!",
+        "notificationsEnabled": "Notifiche abilitate!"
+
+    },
+
+    "en": {
+        "mangaMessage_MarkdownV2": "*=== {} ===*\nLatest chapter: *{}*\n*LINK:* {}",
+        "mangaMessage_html": "<b>=== {} ===</b>\nLatest chapter: <b>{}</b>\n<b>LINK:</b> {}",
+        "updateHeader_html": "<b>FOUND FOLLOWING NEW CHAPTERS:</b>\n\n",
+        "updateFooter": "/notify to disable notifications.",
+        "startMessage_MarkdownV2": "Welcome *{}*\\!\nNotifications: *{}*\nWhat do you want to do?",
+        "startKeyboard": [
+            ["/add: add manga to your list"], 
+            ["/check: get latest chapters of your list"], 
+            ["/list: view and manage your list"], 
+            ["/notify: enable/disable latest chapter's notifications"], 
+            ["/help: view detailed help"]
+        ],
+        "ON": "ON",
+        "OFF": "OFF",
+        "helpMessage_Markdown": "*Commands:*\n/start - initializes the bot and enables the keyboard with default commands.\n/add - starts the procedure to add a manga to the list.\n/check - checks for the release and sends to the user the latest chapter of each manga in the list.\n/list - shows every manga in the list and enables removal or allows you to view single manga latest chapter.\n/notify - enables or disables notifications for the latest chapters.\n/help - shows this message.\n",
+        "mangaSelectionHeader_MarkdownV2": "*Select a manga from the list:*\n",
+        "optionSelectionHeader_MarkdownV2": "*Select an option for _{}_:*\n",
+        "cancelOperation": "Operation canceled.",
+        "latestChapter": "Latest chapter",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "titleRemoved_MarkdownV2": "*{}* has been removed\\!",
+        "singleLatestHeader_MarkdownV2": "There you have it\\!",
+        "emptyListMessage_MarkdownV2": "*No titles found in your list\\!*\nStart adding manga with /add",
+        "addMangaHeader_MarkdownV2": "*Enter the title you're looking for:*",
+        "notFound_MarkdownV2": "Sorry, I couldn't find anything similar to *{}* 🥺",
+        "foundResultsHeader_MarkdownV2": "*Found the following manga for _{}_:*\n",
+        "searching": "Searching...",
+        "successfullyAdded_MarkdownV2": "*_{}_ has been added to your list\\!*",
+        "commandsDisabled": "Commands are temporarly disabled. Enter manga title or cancel with /cancel.",
+        "notificationsDisabled": "Notifications disabled!",
+        "notificationsEnabled": "Notifications enabled!"
+    }
+}
