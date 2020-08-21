@@ -206,11 +206,14 @@ def executeOption(update, context):
         text = LOCALE[lang]["cancelOperation"]
         query.edit_message_text(text=text)
         return ConversationHandler.END
+
     elif query.data == "remove":
         title = context.user_data["title"]
         context.user_data["fetcher"].removeFromList(title)
+
         text = LOCALE[lang]["titleRemoved_MarkdownV2"].format(title)
         query.edit_message_text(text=text, parse_mode="MarkdownV2")
+
     elif query.data == "latest":
         title = context.user_data["title"]
         data = fetchLatest(context.user_data["fetcher"], title)
@@ -270,9 +273,9 @@ def selectSearchResult(update, context):
         query.edit_message_text(text=text)
     else:
         if "$$check_user_data$$" not in query.data:
-            context.user_data["title"] = query.data
+            title = query.data
         else:
-            context.user_data["title"] = context.user_data[query.data]
+            title = context.user_data[query.data]
             for key in list( context.user_data.keys() ):
                 if "$$check_user_data$$" in key:
                     del context.user_data[key]
@@ -280,7 +283,6 @@ def selectSearchResult(update, context):
         text = LOCALE[lang]["searching"]
         query.edit_message_text(text=text)
 
-        title = context.user_data["title"]
         url = context.user_data["title_list"][title]
         data = fetchLatest(context.user_data["fetcher"], title, url=url)
         sendTitleMessage(query, context, data)
@@ -291,7 +293,6 @@ def selectSearchResult(update, context):
 
     try:
         del context.chat_data["target_message_id"]
-        del context.user_data["title"]
         del context.user_data["title_list"]
     except:
         logger.warning('Unable to delete item in user_data: {} or chat_data: {}'.format(context.user_data, context.chat_data))
