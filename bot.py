@@ -377,6 +377,7 @@ def periodicCheck(context):
     chat_id = context.job.context["chat_id"]
     logger.info(f"Periodic check for chat_id {chat_id}")
     if updates != []:
+        logger.info(f"Sending {len(updates)} update(s) to {chat_id}")
         sendUpdateMessage(context, updates)
 
 def periodicPing(context):
