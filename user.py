@@ -7,7 +7,6 @@ class User():
         self.connectToDb()
         self.userID = userID
         self.chatID = chatID
-        self.language = "en"
         self.getStatusFromDb()
     
     def connectToDb(self):
@@ -19,7 +18,9 @@ class User():
         if data == None:
             self.status = {}
             self.notifications = False
+            self.language = "en"
         else:
+            self.language = data["language"]
             self.status = data["status"]
             self.notifications = data["notifications"]
     
