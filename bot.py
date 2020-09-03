@@ -9,7 +9,6 @@ from pymongo import MongoClient
 from requests import post
 
 from fetcher import Fetcher
-from credentials import TOKEN
 
 ############################### helper methods ################################
 def sendTitleMessage(update, context, data):
@@ -465,7 +464,7 @@ def main():
 
     # Start the Bot
     updater.start_webhook(listen="0.0.0.0", port=int(PORT), url_path=TOKEN)
-    updater.bot.setWebhook('***REMOVED***' + TOKEN)
+    updater.bot.setWebhook(WEBHOOK_URL + TOKEN)
 
     startupRoutine(updater)
     updater.idle()
@@ -485,6 +484,8 @@ if __name__ == '__main__':
     
     
     PORT = int(os.environ.get('PORT', 5000))
+    TOKEN = os.getenv('TELEGRAM_TOKEN')
+    WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
     TITLES, SELECTANDFETCH = range(2)
     LISTOPTIONS, EXECUTEOPTION = range(2)
