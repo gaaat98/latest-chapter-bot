@@ -11,7 +11,8 @@ class User():
     
     def connectToDb(self):
         mongo_url = os.getenv('MONGODB_URI')
-        self.db = pymongo.MongoClient(mongo_url, retryWrites=False)['***REMOVED***'].statuses
+        mongo_dbname = os.getenv('MONGODB_DBNAME')
+        self.db = pymongo.MongoClient(mongo_url, retryWrites=False)[mongo_dbname].statuses
 
     def getStatusFromDb(self):
         data = self.db.find_one({"_id":self.userID})

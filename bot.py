@@ -407,8 +407,9 @@ def startupRoutine(updater):
 
     # fetching users
     mongo_url = os.getenv('MONGODB_URI')
+    mongo_dbname = os.getenv('MONGODB_DBNAME')
     db = MongoClient(mongo_url, retryWrites=False)
-    collection = db['***REMOVED***'].statuses
+    collection = db[mongo_dbname].statuses
     users = collection.find({},{"_id": 1, "notifications": 1, "chat_id": 1})
 
     #instantiating fetchers and notifiers
