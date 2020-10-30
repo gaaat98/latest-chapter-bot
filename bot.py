@@ -342,7 +342,7 @@ def instantiateFetcher(update, context):
     lang = update.message.from_user.language_code[0:2]
     context.user_data["fetcher"].setUserLanguage(lang)
 
-    username = update.message.from_user.username
+    username = update.message.from_user.first_name
     context.user_data["fetcher"].setUsername(username)
 
 def instantiatePinger(updater):
