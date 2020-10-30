@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from user import User
 
 class Fetcher():
-    def __init__(self, userID, chatID, username=None):
+    def __init__(self, userID, chatID):
         self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
         self.master = User(userID, chatID)
 
