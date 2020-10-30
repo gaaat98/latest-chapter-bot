@@ -1,6 +1,5 @@
 import os
 import pymongo
-import json
 
 class User():
     def __init__(self, userID, chatID):
@@ -20,6 +19,7 @@ class User():
             self.status = {}
             self.notifications = False
             self.language = "en"
+            self.username = None
         else:
             self.language = data["language"]
             self.status = data["status"]
@@ -29,6 +29,7 @@ class User():
         data = {}
         data["_id"] = self.userID
         data["chat_id"] = self.chatID
+        data["username"] = self.username
         data["language"] = self.language
         data["notifications"] = self.notifications
         data["status"] = self.status
@@ -87,3 +88,10 @@ class User():
 
     def getLanguage(self):
         return self.language
+
+    def setUsername(self, username):
+        self.username = username
+        self.setStatusToDb()
+
+    def getUsername(self):
+        return self.username

@@ -1,29 +1,24 @@
-import requests
-import re
-import difflib
+from requests import get
+from bs4 import BeautifulSoup
 from user import User
 
 class Fetcher():
-    def __init__(self, username, chatid):
+    def __init__(self, userID, chatID, username=None):
         self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
-        self.master = User(username, chatid)
+        self.master = User(userID, chatID)
 
     def fetchManga(self, title=""):
         title.replace(" ", "+")
-        resp = requests.get(self.searchUrl.format(title)).content.decode()
-        if "Nessun Manga trovato" in resp:
+        resp = get(self.searchUrl.format(title)).text
+        soup = BeautifulSoup(resp, "html.parser")
+        if soup.find_all("div", {"class":"not-found-content"}):
             results = {}
         else:
-            temp = re.findall(r"<h4>.*</h4>", resp)
+            post_titles = soup.find_all("div", {"class":"post-title"})
             results = {}
-            for r in temp:
-                name = re.findall(r'">.+</a', r)[0][2:-3]
-                results[name] = re.findall(r'".*"', r)[0].strip('"')
-            final = difflib.get_close_matches(title, results.keys())
-            if final != []:
-                for k in list(results.keys()):
-                    if k not in final:
-                        results.pop(k)
+            for p in post_titles:
+                t = p.find('a')
+                results[t.text] = t['href']
 
         return results
 
@@ -35,18 +30,16 @@ class Fetcher():
 
     def fetchLatestChapter(self, title):
         url = self.master.getUrlFromName(title)
-        resp = requests.get(url)
-        temp = resp.content.decode()
-        temp = temp.replace("\n", "\r")
-        temp = temp.replace("   ", " ")
-        temp = re.findall(r'<li class="wp-manga-chapter\s?">.{0,310}</a>', temp)
-        temp = [' '.join(t.split()) for t in temp]
+        resp = get(url).text
+        soup = BeautifulSoup(resp, "html.parser")
+        chapters = soup.find_all("li", {"class":"wp-manga-chapter"})
+        last_chapter = chapters[0].find("a")
 
         try:
-            lastn = int(re.findall(r" \d{1,5}", temp[0])[0])
+            lastn = int(last_chapter.text.split(" ")[1])
         except:
             lastn = 0
-        lasturl = re.findall(r'https://.*"', temp[0])[0][0:-1]
+        lasturl = last_chapter["href"]
 
         return [[title, lastn, lasturl]]
 
@@ -94,4 +87,10 @@ class Fetcher():
 
     def getUserLanguage(self):
        return self.master.getLanguage()
+
+    def setUsername(self, username):
+        self.master.setUsername(username)
+
+    def getUsername(self):
+        return self.master.getUsername()
 

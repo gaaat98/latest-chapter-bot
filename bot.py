@@ -1,10 +1,10 @@
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler)
-from telegram import (Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup)
+from telegram import (ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup)
 
 import logging
 import os
-import json
-from datetime import time
+
+from json import load
 from pymongo import MongoClient
 from requests import post
 
@@ -342,6 +342,9 @@ def instantiateFetcher(update, context):
     lang = update.message.from_user.language_code[0:2]
     context.user_data["fetcher"].setUserLanguage(lang)
 
+    username = update.message.from_user.username
+    context.user_data["fetcher"].setUsername(username)
+
 def instantiatePinger(updater):
     """Creates single job to periodically ping Heroku's dyno 
     to keep it from idling"""
@@ -479,7 +482,7 @@ if __name__ == '__main__':
 
     try:
         with open("lang.json", "r") as lang_dict:
-            LOCALE = json.load(lang_dict)
+            LOCALE = load(lang_dict)
         logger.info('Localization file has been loaded successfully!')
     except:
         logger.info('Failed to load localization file. Exiting.')
