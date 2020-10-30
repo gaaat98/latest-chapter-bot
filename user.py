@@ -15,16 +15,17 @@ class User():
 
     def getStatusFromDb(self):
         data = self.db.find_one({"_id":self.userID})
-        self.username = None
         if data == None:
             self.status = {}
             self.notifications = False
             self.language = "en"
+            self.username = None
         else:
+            self.username = data["username"]
             self.language = data["language"]
             self.status = data["status"]
             self.notifications = data["notifications"]
-    
+
     def setStatusToDb(self):
         data = {}
         data["_id"] = self.userID
@@ -35,7 +36,7 @@ class User():
         data["status"] = self.status
         self.db.delete_one({"_id":self.userID})
         self.db.insert_one(data)
-    
+
     def presentManga(self, title, url):
         if not self.isPresent(title):
             self.status[title] = {}

@@ -343,7 +343,6 @@ def instantiateFetcher(update, context):
     context.user_data["fetcher"].setUserLanguage(lang)
 
     username = update.message.from_user.first_name
-    logger.info(f'USERNAME IS {username}')
     context.user_data["fetcher"].setUsername(username)
 
 def instantiatePinger(updater):

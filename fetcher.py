@@ -38,7 +38,10 @@ class Fetcher():
         try:
             lastn = int(last_chapter.text.split(" ")[1])
         except:
-            lastn = 0
+            try:
+                lastn = float(last_chapter.text.split(" ")[1])
+            except:
+                lastn = 0
         lasturl = last_chapter["href"]
 
         return [[title, lastn, lasturl]]
