@@ -4,21 +4,24 @@ from user import User
 
 class Fetcher():
     def __init__(self, userID, chatID):
-        self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
+        #self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
+        self.searchUrl = "https://www.mangaworld.cc/archive?keyword={}&sort=most_read"
         self.master = User(userID, chatID)
 
     def fetchManga(self, title=""):
         title.replace(" ", "+")
         resp = get(self.searchUrl.format(title)).text
         soup = BeautifulSoup(resp, "html.parser")
-        if soup.find_all("div", {"class":"not-found-content"}):
+        #if soup.find_all("div", {"class":"not-found-content"}):
+        if "Nessun risultato trovato" in resp:
             results = {}
         else:
-            post_titles = soup.find_all("div", {"class":"post-title"})
+            post_titles = soup.find_all("div", {"class":"entry"})
             results = {}
             for p in post_titles:
                 t = p.find('a')
-                results[t.text] = t['href']
+                title = t['title']
+                results[title] = t['href']
 
         return results
 
@@ -32,14 +35,16 @@ class Fetcher():
         url = self.master.getUrlFromName(title)
         resp = get(url).text
         soup = BeautifulSoup(resp, "html.parser")
-        chapters = soup.find_all("li", {"class":"wp-manga-chapter"})
+        chapters = soup.find_all("div", {"class":"chapter"})
         last_chapter = chapters[0].find("a")
 
         try:
-            lastn = int(last_chapter.text.split(" ")[1])
+            text = last_chapter.find("span", {"class":"d-inline-block"}).text
+            lastn = int(text.split(" ")[1])
         except:
             try:
-                lastn = float(last_chapter.text.split(" ")[1])
+                text = last_chapter.find("span", {"class":"d-inline-block"}).text
+                lastn = float(text.split(" ")[1])
             except:
                 lastn = 0
         lasturl = last_chapter["href"]
