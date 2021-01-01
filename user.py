@@ -34,8 +34,7 @@ class User():
         data["language"] = self.language
         data["notifications"] = self.notifications
         data["status"] = self.status
-        self.db.delete_one({"_id":self.userID})
-        self.db.insert_one(data)
+        self.db.update_one({"_id":self.userID}, {"$set": data}, upsert=True)
 
     def presentManga(self, title, url):
         if not self.isPresent(title):
@@ -51,10 +50,10 @@ class User():
     def getLatest(self, title):
         return self.status[title]["latestn"]
     
-    def updateLatest(self, title, n, url):
+    def updateLatest(self, title, n):
         if self.isPresent(title):
             self.status[title]["latestn"] = n
-            self.status[title]["latesturl"] = url
+            #self.status[title]["latesturl"] = url
             self.setStatusToDb()
 
     def getTitlesAndUrls(self):

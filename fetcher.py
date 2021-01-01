@@ -5,7 +5,6 @@ from MangaDB import MangaDB
 
 class Fetcher():
     def __init__(self, userID, chatID):
-        #self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
         self.searchUrl = "https://www.mangaworld.cc/archive?keyword={}&sort=most_read"
         self.master = User(userID, chatID)
         self.mangaDB = MangaDB()
@@ -30,7 +29,8 @@ class Fetcher():
     def selectMangaAddAndFetch(self, title, url):
         self.master.presentManga(title, url)
         data = self.fetchLatestChapter(title)
-        self.master.updateLatest(*data[0])
+        #self.master.updateLatest(*data[0])
+        self.master.updateLatest(data[0][0], data[0][1])
         return data
 
     def fetchLatestChapter(self, title):
@@ -66,13 +66,13 @@ class Fetcher():
             for title in mangas:
                 _, latestn, latesturl = self.fetchLatestChapter(title)[0]
                 if self.master.getLatest(title) < latestn:
-                    self.master.updateLatest(title, latestn, latesturl)
+                    self.master.updateLatest(title, latestn)
                     res.append((title, latestn, latesturl))
         else:
             for title in mangas:
                 _, latestn, latesturl = self.fetchLatestChapter(title)[0]
                 if self.master.getLatest(title) < latestn:
-                    self.master.updateLatest(title, latestn, latesturl)
+                    self.master.updateLatest(title, latestn)
                 res.append((title, latestn, latesturl))
         
         return res
