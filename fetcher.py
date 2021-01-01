@@ -1,12 +1,14 @@
 from requests import get
 from bs4 import BeautifulSoup
 from user import User
+from MangaDB import MangaDB
 
 class Fetcher():
     def __init__(self, userID, chatID):
         #self.searchUrl = "https://mangaworld.tv/?s={}&post_type=wp-manga&m_orderby=trending"
         self.searchUrl = "https://www.mangaworld.cc/archive?keyword={}&sort=most_read"
         self.master = User(userID, chatID)
+        self.mangaDB = MangaDB()
 
     def fetchManga(self, title=""):
         title.replace(" ", "+")
@@ -33,6 +35,11 @@ class Fetcher():
 
     def fetchLatestChapter(self, title):
         url = self.master.getUrlFromName(title)
+
+        data = self.mangaDB.getUpdatedData(title, url)
+        if data != []:
+            return data
+
         resp = get(url).text
         soup = BeautifulSoup(resp, "html.parser")
         chapters = soup.find_all("div", {"class":"chapter"})
@@ -49,6 +56,7 @@ class Fetcher():
                 lastn = 0
         lasturl = last_chapter["href"]
 
+        self.mangaDB.updateManga(title, url, lastn, lasturl)
         return [[title, lastn, lasturl]]
 
     def checkRelease(self, updatesOnly=False):
