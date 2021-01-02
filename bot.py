@@ -338,12 +338,17 @@ def instantiateFetcher(update, context):
             context.user_data["fetcher"] = Fetcher(user_id, chat_id)
 
         logger.info(f'Fetcher for user {user_id} has been instantiated successfully!')
+    try:
+        lang = update.message.from_user.language_code[0:2]
+        context.user_data["fetcher"].setUserLanguage(lang)
+    except:
+        logger.warning('Failed to retreive user language! The update was "%s".', update)
 
-    lang = update.message.from_user.language_code[0:2]
-    context.user_data["fetcher"].setUserLanguage(lang)
-
-    username = update.message.from_user.first_name
-    context.user_data["fetcher"].setUsername(username)
+    try:
+        username = update.message.from_user.first_name
+        context.user_data["fetcher"].setUsername(username)
+    except:
+        logger.warning('Failed to retreive user first name! The update was "%s".', update)
 
 def instantiatePinger(updater):
     """Creates single job to periodically ping Heroku's dyno 
@@ -367,6 +372,7 @@ def removeNotifier(job_queue, userid):
 
     job =  job_queue.get_jobs_by_name("PeriodicUpdateNotifier"+str(userid))[0]
     job.schedule_removal()
+    logger.info(f'Notifier for user {userid} has been removed succesfully!')
 ###############################################################################
 
 ############################## periodic routines ##############################
