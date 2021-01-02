@@ -6,6 +6,7 @@ __pycache__/
 .vscode/
 
 # Misc files
+.gitignore
 main.py
 comandi.txt
 LatestChapter.code-workspace
