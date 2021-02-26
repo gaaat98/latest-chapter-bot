@@ -21,7 +21,7 @@ class Fetcher():
             results = {}
             for p in post_titles:
                 t = p.find('a')
-                title = t['title']
+                title = t['title'].replace("-", "\\-")
                 results[title] = t['href']
 
         return results
@@ -43,6 +43,7 @@ class Fetcher():
         resp = get(url).text
         soup = BeautifulSoup(resp, "html.parser")
         chapters = soup.find_all("div", {"class":"chapter"})
+        # indagare perchè qui lancia index out of range
         last_chapter = chapters[0].find("a")
 
         try:
