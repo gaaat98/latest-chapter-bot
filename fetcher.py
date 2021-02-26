@@ -21,7 +21,7 @@ class Fetcher():
             results = {}
             for p in post_titles:
                 t = p.find('a')
-                title = t['title'].replace("-", "~")
+                title = t['title'].replace("-", "—")
                 results[title] = t['href']
 
         return results
