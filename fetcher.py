@@ -5,7 +5,7 @@ from MangaDB import MangaDB
 
 class Fetcher():
     def __init__(self, userID, chatID):
-        self.searchUrl = "https://www.mangaworld.io/archive?keyword={}&sort=most_read"
+        self.searchUrl = "https://www.mangaworld.in/archive?keyword={}&sort=most_read"
         self.master = User(userID, chatID)
         self.mangaDB = MangaDB()
 
