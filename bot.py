@@ -475,7 +475,10 @@ def main():
     dp.add_error_handler(error)
 
     # Start the Bot
-    updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN)
+    if CERT_PATH != None and CERT_KEY_PATH != None:
+        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, cert=CERT_PATH, key=CERT_KEY_PATH)
+    else:
+        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN)
     updater.bot.setWebhook(WEBHOOK_URL + TOKEN)
 
     startupRoutine(updater)
@@ -498,6 +501,10 @@ if __name__ == '__main__':
     WEBHOOK_URL = os.getenv('WEBHOOK_URL')
     PORT = int(os.getenv('PORT'))
     TOKEN = os.getenv('TELEGRAM_TOKEN')
+
+    # cert path
+    CERT_PATH = os.getenv('CERT_PATH')
+    CERT_KEY_PATH = os.getenv('CERT_KEY_PATH')
 
     # conversation constants, not needed, but help understand code
     TITLES, SELECTANDFETCH = LISTOPTIONS, EXECUTEOPTION = range(2)
