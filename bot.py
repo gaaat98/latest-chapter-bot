@@ -479,7 +479,7 @@ def main():
         updater.start_webhook(port=PORT, url_path=TOKEN, cert=CERT_PATH, key=CERT_KEY_PATH)
         logger.info('Webhook started WITH certificate!')
     else:
-        updater.start_webhook(port=PORT, url_path=TOKEN")
+        updater.start_webhook(port=PORT, url_path=TOKEN)
         logger.info('Webhook started WITHOUT certificate!')
 
     updater.bot.setWebhook("https://" + WEBHOOK_URL + ":" + str(PORT) + "/" + TOKEN)
