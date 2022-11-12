@@ -484,7 +484,8 @@ def main():
 
     # updater.bot.setWebhook("https://" + WEBHOOK_URL + ":" + str(PORT) + "/" + TOKEN)
     # ugly ass workaround to set webhook url because certifcates fuck things up
-    os.system(f'curl -F "url=https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}" https://api.telegram.org/bot{TOKEN}/setWebhook')
+    os.system(f' sleep 3 && curl -F "url=https://www.***REMOVED***:8443/***REMOVED***" https://api.telegram.org/bot***REMOVED***/setWebhook &> /dev/null')
+    logger.info('cURL workaround done!')
 
     startupRoutine(updater)
     updater.idle()
