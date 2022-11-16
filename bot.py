@@ -479,13 +479,13 @@ def main():
         updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}", cert=CERT_PATH, key=CERT_KEY_PATH)
         logger.info('Webhook started WITH certificate!')
         # ugly ass workaround to set webhook url because certifcates fuck things up
-        os.system(f' sleep 3 && curl -F "url=https://www.***REMOVED***:8443/***REMOVED***" https://api.telegram.org/bot***REMOVED***/setWebhook &> /dev/null')
-        logger.info('cURL workaround done!')
+        # os.system(f' sleep 3 && curl -F "url=https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}" https://api.telegram.org/bot{TOKEN}/setWebhook &> /dev/null')
+        # logger.info('cURL workaround done!')
     else:
         updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}")
         logger.info('Webhook started WITHOUT certificate!')
 
-    # updater.bot.setWebhook("https://" + WEBHOOK_URL + ":" + str(PORT) + "/" + TOKEN)
+    updater.bot.setWebhook("https://" + WEBHOOK_URL + ":" + str(PORT) + "/" + TOKEN)
 
     startupRoutine(updater)
     updater.idle()
