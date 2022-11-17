@@ -431,7 +431,7 @@ def startupRoutine(updater):
     db.close()
 
     # instantiating auto-pinger
-    instantiatePinger(updater)
+    # instantiatePinger(updater)
 
 def main():
     """Starts the bot."""
