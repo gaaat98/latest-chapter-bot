@@ -476,16 +476,16 @@ def main():
 
     # Start the Bot
     if CERT_PATH != None and CERT_KEY_PATH != None:
-        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}", cert=CERT_PATH, key=CERT_KEY_PATH)
+        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}", cert=CERT_PATH, key=CERT_KEY_PATH)
         logger.info('Webhook started WITH certificate!')
         # ugly ass workaround to set webhook url because certifcates fuck things up
-        # os.system(f' sleep 3 && curl -F "url=https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}" https://api.telegram.org/bot{TOKEN}/setWebhook &> /dev/null')
+        # os.system(f' sleep 3 && curl -F "url=https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}" https://api.telegram.org/bot{TOKEN}/setWebhook &> /dev/null')
         # logger.info('cURL workaround done!')
     else:
-        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_URL}:{str(PORT)}/{TOKEN}")
+        updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}")
         logger.info('Webhook started WITHOUT certificate!')
 
-    updater.bot.setWebhook("https://" + WEBHOOK_URL + ":" + str(PORT) + "/" + TOKEN)
+    updater.bot.setWebhook("https://" + WEBHOOK_DOMAIN + ":" + str(PORT) + "/" + TOKEN)
 
     startupRoutine(updater)
     updater.idle()
@@ -504,7 +504,7 @@ if __name__ == '__main__':
         exit(-1)
 
     # sensible data
-    WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+    WEBHOOK_DOMAIN = os.getenv('WEBHOOK_DOMAIN')
     PORT = int(os.getenv('PORT'))
     TOKEN = os.getenv('TELEGRAM_TOKEN')
 
