@@ -350,18 +350,38 @@ def instantiateFetcher(update, context):
     except:
         logger.warning('Failed to retreive user first name! The update was "%s".', update)
 
-def instantiatePinger(updater):
-    """Creates single job to periodically ping Heroku's dyno 
-    to keep it from idling"""
 
-    target = updater.bot.get_webhook_info()["url"]
-    context = {"url": target}
-    updater.job_queue.run_repeating(periodicPing, interval=900, first=0, name="KeepUpPinger", context=context)
-    logger.info(f'KeepUp pinger has been instantiated succesfully!')
+def instantiateRenewal(updater):
+    """Creates single job to renew certificate by calling certbot"""
+    def renewCert(context):
+        """Renews certificate by calling certbot"""
+        import os
+        try:
+            os.system("certbot renew")
+            logger.info("Certificate renewal check performed successfully, restarting bot to apply new certificates!")
+            os._exit(0)
+        except:
+            logger.warning("Certificate renewal check failed!")
+
+    updater.job_queue.run_repeating(renewCert, interval=82800, first=82800, name="CertificateRenewal")
+    logger.info("Certificate renewal job instantiated!")
+
 
 def instantiateNotifier(job_queue, fetcher, bot, userid, chatid):
     """Creates per-user job to periodically (every hour) check for the release
     of new chapters of manga in user's list"""
+
+    def periodicCheck(context):
+        """Routine to periodically check for the release
+        of new chapters of manga in user's list"""
+
+        fetcher = context.job.context["fetcher"]
+        updates = fetcher.checkRelease(updatesOnly=True)
+        chat_id = context.job.context["chat_id"]
+        logger.info(f"Periodic check for chat_id {chat_id}")
+        if updates != []:
+            logger.info(f"Sending {len(updates)} update(s) to {chat_id}")
+            sendUpdateMessage(context, updates)
 
     context = {"fetcher": fetcher, "chat_id": chatid, "bot": bot}
     job_queue.run_repeating(periodicCheck, interval=3600, first=0, name="PeriodicUpdateNotifier"+str(userid), context=context)
@@ -375,39 +395,6 @@ def removeNotifier(job_queue, userid):
     logger.info(f'Notifier for user {userid} has been removed succesfully!')
 ###############################################################################
 
-############################## periodic routines ##############################
-def periodicCheck(context):
-    """Routine to periodically check for the release
-    of new chapters of manga in user's list"""
-
-    fetcher = context.job.context["fetcher"]
-    updates = fetcher.checkRelease(updatesOnly=True)
-    chat_id = context.job.context["chat_id"]
-    logger.info(f"Periodic check for chat_id {chat_id}")
-    if updates != []:
-        logger.info(f"Sending {len(updates)} update(s) to {chat_id}")
-        sendUpdateMessage(context, updates)
-
-def periodicPing(context):
-    """Routine to periodically ping Heroku's dyno with an 
-    empty telegram message to keep it from idling"""
-
-    url = context.job.context["url"]
-    headers = {"content-type": "application/json", 'User-Agent': None, 'accept': None}
-    data = {
-        "update_id": 0, 
-        "message": {
-                "message_id": 0,
-                "date": 0,
-                "text": "ping"
-        }
-    }
-    try:
-        r = post(url, json=data, headers=headers )
-        logger.info(f"Pinged Heroku app to keep up service. STATUS CODE: {r.status_code}")
-    except:
-        logger.info(f"Failed to ping Heroku. Will try again later.")
-###############################################################################
 
 def startupRoutine(updater):
     """Fetches known users from database and instantiates 
@@ -429,9 +416,6 @@ def startupRoutine(updater):
         if u["notifications"] == True:
             instantiateNotifier(updater.job_queue, FETCHERS[user_id], updater.bot, user_id, chat_id)
     db.close()
-
-    # instantiating auto-pinger
-    # instantiatePinger(updater)
 
 def main():
     """Starts the bot."""
@@ -477,6 +461,7 @@ def main():
     # Start the Bot
     if CERT_PATH != None and CERT_KEY_PATH != None:
         updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}", cert=CERT_PATH, key=CERT_KEY_PATH)
+        instantiateRenewal(updater)
         logger.info('Webhook started WITH certificate!')
         # ugly ass workaround to set webhook url because certifcates fuck things up
         # os.system(f' sleep 3 && curl -F "url=https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}" https://api.telegram.org/bot{TOKEN}/setWebhook &> /dev/null')
@@ -485,9 +470,8 @@ def main():
         updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=TOKEN, webhook_url=f"https://{WEBHOOK_DOMAIN}:{str(PORT)}/{TOKEN}")
         logger.info('Webhook started WITHOUT certificate!')
 
-    updater.bot.setWebhook("https://" + WEBHOOK_DOMAIN + ":" + str(PORT) + "/" + TOKEN)
-
     startupRoutine(updater)
+
     updater.idle()
 
 if __name__ == '__main__':
